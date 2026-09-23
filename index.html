@@ -105,6 +105,14 @@
       gap:10px;align-items:end
     }
     .dataset-list{margin-top:12px}
+    .mapping-editor{
+      margin-top:18px;padding-top:18px;border-top:1px dashed var(--line)
+    }
+    .mapping-edit-form{
+      display:grid;grid-template-columns:minmax(120px,.7fr) minmax(120px,.7fr) minmax(220px,1.6fr) auto;
+      gap:10px;align-items:end
+    }
+    .note-output{min-height:74px}
     .set-row{
       display:flex;align-items:center;justify-content:space-between;gap:10px;
       padding:10px 12px;border-bottom:1px solid var(--line)
@@ -115,7 +123,7 @@
     .set-count{font-size:12px;color:var(--muted);margin-top:2px}
     .footer{color:var(--muted);font-size:12px;margin-top:18px;text-align:center}
     @media (max-width:700px){
-      .dict-form,.dataset-upload{grid-template-columns:1fr}
+      .dict-form,.dataset-upload,.mapping-edit-form{grid-template-columns:1fr}
       .lookup-grid{grid-template-columns:1fr}
       .lookup-buttons{flex-direction:row}
       .lookup-buttons button{flex:1}
@@ -128,7 +136,7 @@
 <body>
 <main class="wrap">
   <h1>축척 · 한자 · 번호 대응 도구</h1>
-  <p class="sub">축척 변경 배율 계산, 사용자 한자 사전 변환, 엑셀/CSV 번호 대응표의 양방향 조회를 한 페이지에서 처리합니다.</p>
+  <p class="sub">축척 변경 배율 계산, 사용자 한자 사전 변환, 엑셀/CSV 번호 대응표의 양방향 조회와 비고 편집을 한 페이지에서 처리합니다.</p>
 
   <div class="grid">
     <section class="card">
@@ -192,7 +200,11 @@
         </div>
       </div>
       <div id="lookupResult" class="result">항목을 선택하고 어느 한쪽 번호를 입력하세요.</div>
-      <div class="hint">예: ‘6차’ 표에 125 ↔ 7543이 등록돼 있으면 125를 넣어 7543을 찾거나, 반대로 7543을 넣어 125를 찾을 수 있습니다. Enter 키로도 조회됩니다.</div>
+      <div class="field" style="margin-top:12px">
+        <label for="lookupNote">비고</label>
+        <textarea id="lookupNote" class="note-output" readonly placeholder="조회된 번호의 비고가 여기에 표시됩니다."></textarea>
+      </div>
+      <div class="hint">예: ‘6차’ 표에 125 ↔ 7543이 등록돼 있으면 125를 넣어 7543을 찾거나, 반대로 7543을 넣어 125를 찾을 수 있습니다. 비고도 함께 표시됩니다. Enter 키로도 조회됩니다.</div>
 
       <div class="dataset-manage">
         <h3 style="margin:0 0 10px;font-size:16px">번호표 업로드 / 관리</h3>
@@ -208,12 +220,52 @@
           <button id="uploadMappingBtn" class="primary">업로드 / 교체</button>
         </div>
         <div class="hint">
-          첫 번째 열은 ‘앞 번호’, 두 번째 열은 ‘뒤 번호’로 읽습니다. 첫 행에 <b>앞 번호 / 뒤 번호</b> 제목을 넣어도 됩니다.
+          첫 번째 열은 ‘앞 번호’, 두 번째 열은 ‘뒤 번호’, 세 번째 열은 ‘비고’로 읽습니다. 비고는 비워도 됩니다.
+          첫 행에 <b>앞 번호 / 뒤 번호 / 비고</b> 제목을 넣어도 됩니다.
           같은 이름(예: 6차)으로 다시 업로드하면 기존 표를 교체합니다. 첫 번째 시트만 사용합니다.
         </div>
         <div id="mappingMsg" class="msg" style="margin-top:10px"></div>
         <div class="table-wrap dataset-list">
           <div id="numberSetList"></div>
+        </div>
+
+        <div class="mapping-editor">
+          <h3 style="margin:0 0 10px;font-size:16px">현재 선택된 번호표 직접 편집</h3>
+          <div class="mapping-edit-form">
+            <div class="field">
+              <label for="editLeftNumber">앞 번호</label>
+              <input id="editLeftNumber" type="text" inputmode="numeric" placeholder="예: 125">
+            </div>
+            <div class="field">
+              <label for="editRightNumber">뒤 번호</label>
+              <input id="editRightNumber" type="text" inputmode="numeric" placeholder="예: 7543">
+            </div>
+            <div class="field">
+              <label for="editNote">비고</label>
+              <input id="editNote" type="text" placeholder="예: 1호분 출토">
+            </div>
+            <div class="row" style="gap:8px">
+              <button id="saveMappingRowBtn" class="primary">행 추가</button>
+              <button id="cancelMappingEditBtn" class="ghost" style="display:none">취소</button>
+            </div>
+          </div>
+
+          <div class="dict-tools">
+            <div class="field">
+              <label for="mappingSearchInput">현재 번호표 검색</label>
+              <input id="mappingSearchInput" type="text" placeholder="앞 번호, 뒤 번호, 비고 검색">
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>앞 번호</th><th>뒤 번호</th><th>비고</th><th>관리</th></tr>
+              </thead>
+              <tbody id="mappingRowsBody"></tbody>
+            </table>
+          </div>
+          <div id="mappingRowsCount" class="hint"></div>
         </div>
       </div>
     </section>
@@ -290,7 +342,7 @@ service cloud.firestore {
     </section>
   </div>
 
-  <div class="footer">Firebase 설정 시 한자 사전과 번호 대응표가 클라우드에 저장됩니다. 설정 전에는 현재 브라우저에만 저장됩니다.</div>
+  <div class="footer">Firebase 설정 시 한자 사전과 번호 대응표(비고 포함)가 클라우드에 저장됩니다. 설정 전에는 현재 브라우저에만 저장됩니다.</div>
 </main>
 
 <script type="module">
@@ -312,6 +364,7 @@ service cloud.firestore {
   let dictionary = {};
   let numberSets = {};
   let currentSetRows = [];
+  let editingMappingIndex = null;
   let mode = "local";
   let db = null;
   let editingKey = null;
@@ -401,12 +454,16 @@ service cloud.firestore {
     return String(v ?? "").trim();
   }
 
-  function obviousHeader(a, b) {
+  function obviousHeader(a, b, c = "") {
     const x = normalizeCell(a).toLowerCase().replace(/\s+/g,"");
     const y = normalizeCell(b).toLowerCase().replace(/\s+/g,"");
+    const z = normalizeCell(c).toLowerCase().replace(/\s+/g,"");
     const leftWords = ["앞번호","원번호","입력번호","번호1","left","from"];
     const rightWords = ["뒤번호","대응번호","출력번호","번호2","right","to"];
-    return leftWords.some(w => x.includes(w)) || rightWords.some(w => y.includes(w));
+    const noteWords = ["비고","메모","note","remark"];
+    return leftWords.some(w => x.includes(w)) ||
+      rightWords.some(w => y.includes(w)) ||
+      noteWords.some(w => z.includes(w));
   }
 
   async function parseMappingFile(file) {
@@ -418,19 +475,23 @@ service cloud.firestore {
     let rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:"", raw:false, blankrows:false});
 
     rows = rows
-      .map(r => [normalizeCell(r[0]), normalizeCell(r[1])])
-      .filter(([a,b]) => a !== "" || b !== "");
+      .map(r => [normalizeCell(r[0]), normalizeCell(r[1]), normalizeCell(r[2])])
+      .filter(([a,b,c]) => a !== "" || b !== "" || c !== "");
 
-    if (rows.length && obviousHeader(rows[0][0], rows[0][1])) rows.shift();
+    if (rows.length && obviousHeader(rows[0][0], rows[0][1], rows[0][2])) rows.shift();
 
     const cleaned = [];
     const seen = new Set();
-    for (const [left,right] of rows) {
+    for (const [left,right,note] of rows) {
       if (!left || !right) continue;
       const key = left + "\u0000" + right;
-      if (seen.has(key)) continue;
+      if (seen.has(key)) {
+        const idx = cleaned.findIndex(r => r[0] === left && r[1] === right);
+        if (idx >= 0 && note) cleaned[idx][2] = note;
+        continue;
+      }
       seen.add(key);
-      cleaned.push([left,right]);
+      cleaned.push([left,right,note]);
     }
     return cleaned;
   }
@@ -501,14 +562,19 @@ service cloud.firestore {
     else {
       currentSetRows = [];
       $("lookupResult").textContent = "먼저 번호 대응표를 업로드하세요.";
+      $("lookupNote").value = "";
+      renderMappingRows();
     }
   }
 
   async function loadSelectedSet() {
     const name = $("numberSetSelect").value;
     currentSetRows = [];
+    resetMappingEditor();
     if (!name) {
       $("lookupResult").textContent = "항목을 선택하세요.";
+      $("lookupNote").value = "";
+      renderMappingRows();
       return;
     }
 
@@ -523,12 +589,16 @@ service cloud.firestore {
         });
         chunks.sort((a,b) => Number(a.id) - Number(b.id));
         currentSetRows = chunks.flatMap(c => c.rows)
-          .map(r => [normalizeCell(r?.[0]), normalizeCell(r?.[1])])
+          .map(r => [normalizeCell(r?.[0]), normalizeCell(r?.[1]), normalizeCell(r?.[2])])
           .filter(([a,b]) => a && b);
       } else {
-        currentSetRows = Array.isArray(numberSets[name]?.rows) ? numberSets[name].rows : [];
+        currentSetRows = Array.isArray(numberSets[name]?.rows)
+          ? numberSets[name].rows.map(r => [normalizeCell(r?.[0]), normalizeCell(r?.[1]), normalizeCell(r?.[2])])
+          : [];
       }
       $("lookupResult").textContent = `‘${name}’ 번호표 ${currentSetRows.length.toLocaleString("ko-KR")}쌍 준비됨.`;
+      $("lookupNote").value = "";
+      renderMappingRows();
     } catch (err) {
       console.error(err);
       setMappingStatus("번호표를 불러오지 못했습니다: " + (err?.message || err), "error");
@@ -545,16 +615,24 @@ service cloud.firestore {
     if (!name) return $("lookupResult").textContent = "먼저 항목을 선택하세요.";
     if (!value) return $("lookupResult").textContent = "앞 번호를 입력하세요.";
 
-    const hits = uniqueValues(currentSetRows.filter(r => r[0] === value).map(r => r[1]));
+    const hits = currentSetRows.filter(r => r[0] === value);
     if (!hits.length) {
       $("rightNumber").value = "";
+      $("lookupNote").value = "";
       $("lookupResult").textContent = `‘${name}’에서 앞 번호 ${value}에 대응하는 값이 없습니다.`;
       return;
     }
-    $("rightNumber").value = hits.join(", ");
+
+    const rightValues = uniqueValues(hits.map(r => r[1]));
+    $("rightNumber").value = rightValues.join(", ");
+    $("lookupNote").value = hits.map(r => {
+      const note = r[2] || "(비고 없음)";
+      return hits.length > 1 ? `${r[1]} : ${note}` : note;
+    }).join("\n");
+
     $("lookupResult").textContent = hits.length === 1
-      ? `${value} → ${hits[0]}`
-      : `${value} → ${hits.join(", ")} (${hits.length}개 일치)`;
+      ? `${value} → ${hits[0][1]}`
+      : `${value} → ${rightValues.join(", ")} (${hits.length}개 일치)`;
   }
 
   function lookupReverse() {
@@ -563,16 +641,172 @@ service cloud.firestore {
     if (!name) return $("lookupResult").textContent = "먼저 항목을 선택하세요.";
     if (!value) return $("lookupResult").textContent = "뒤 번호를 입력하세요.";
 
-    const hits = uniqueValues(currentSetRows.filter(r => r[1] === value).map(r => r[0]));
+    const hits = currentSetRows.filter(r => r[1] === value);
     if (!hits.length) {
       $("leftNumber").value = "";
+      $("lookupNote").value = "";
       $("lookupResult").textContent = `‘${name}’에서 뒤 번호 ${value}에 대응하는 값이 없습니다.`;
       return;
     }
-    $("leftNumber").value = hits.join(", ");
+
+    const leftValues = uniqueValues(hits.map(r => r[0]));
+    $("leftNumber").value = leftValues.join(", ");
+    $("lookupNote").value = hits.map(r => {
+      const note = r[2] || "(비고 없음)";
+      return hits.length > 1 ? `${r[0]} : ${note}` : note;
+    }).join("\n");
+
     $("lookupResult").textContent = hits.length === 1
-      ? `${hits[0]} ← ${value}`
-      : `${hits.join(", ")} ← ${value} (${hits.length}개 일치)`;
+      ? `${hits[0][0]} ← ${value}`
+      : `${leftValues.join(", ")} ← ${value} (${hits.length}개 일치)`;
+  }
+
+  function resetMappingEditor() {
+    editingMappingIndex = null;
+    $("editLeftNumber").value = "";
+    $("editRightNumber").value = "";
+    $("editNote").value = "";
+    $("saveMappingRowBtn").textContent = "행 추가";
+    $("cancelMappingEditBtn").style.display = "none";
+  }
+
+  function renderMappingRows() {
+    const body = $("mappingRowsBody");
+    const countEl = $("mappingRowsCount");
+    if (!body || !countEl) return;
+
+    const query = ($("mappingSearchInput")?.value || "").trim().toLowerCase();
+    const indexed = currentSetRows
+      .map((row, index) => ({row, index}))
+      .filter(({row}) => {
+        if (!query) return true;
+        return row.some(v => String(v ?? "").toLowerCase().includes(query));
+      });
+
+    body.innerHTML = "";
+    if (!indexed.length) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="4" class="empty">${currentSetRows.length ? "검색 결과가 없습니다." : "현재 항목에 번호쌍이 없습니다."}</td>`;
+      body.appendChild(tr);
+    } else {
+      const shown = indexed.slice(0, 300);
+      for (const {row, index} of shown) {
+        const tr = document.createElement("tr");
+        for (let col = 0; col < 3; col++) {
+          const td = document.createElement("td");
+          td.textContent = row[col] || "";
+          tr.appendChild(td);
+        }
+
+        const tdA = document.createElement("td");
+        tdA.className = "actions";
+
+        const edit = document.createElement("button");
+        edit.className = "small";
+        edit.textContent = "수정";
+        edit.addEventListener("click", () => startMappingEdit(index));
+
+        const del = document.createElement("button");
+        del.className = "small danger";
+        del.textContent = "삭제";
+        del.addEventListener("click", () => deleteMappingRow(index));
+
+        tdA.append(edit, del);
+        tr.appendChild(tdA);
+        body.appendChild(tr);
+      }
+    }
+
+    const suffix = indexed.length > 300 ? " · 화면에는 검색 결과 중 300개까지 표시" : "";
+    countEl.textContent = `현재 표 전체 ${currentSetRows.length.toLocaleString("ko-KR")}쌍 · 검색 결과 ${indexed.length.toLocaleString("ko-KR")}쌍${suffix}`;
+  }
+
+  function startMappingEdit(index) {
+    const row = currentSetRows[index];
+    if (!row) return;
+    editingMappingIndex = index;
+    $("editLeftNumber").value = row[0] || "";
+    $("editRightNumber").value = row[1] || "";
+    $("editNote").value = row[2] || "";
+    $("saveMappingRowBtn").textContent = "수정 저장";
+    $("cancelMappingEditBtn").style.display = "";
+    $("editLeftNumber").focus();
+  }
+
+  async function persistCurrentSet(successMessage) {
+    const name = $("numberSetSelect").value;
+    if (!name) throw new Error("선택된 항목이 없습니다.");
+
+    if (mode === "cloud") {
+      await saveNumberSetCloud(name, currentSetRows);
+      numberSets[name] = {count: currentSetRows.length};
+    } else {
+      numberSets[name] = {count: currentSetRows.length, rows: currentSetRows};
+      saveLocalNumberSets();
+    }
+
+    setMappingStatus(successMessage, "ok");
+  }
+
+  async function saveMappingRow() {
+    const name = $("numberSetSelect").value;
+    if (!name) return alert("먼저 번호표 항목을 선택하거나 업로드하세요.");
+
+    const left = $("editLeftNumber").value.trim();
+    const right = $("editRightNumber").value.trim();
+    const note = $("editNote").value.trim();
+    if (!left || !right) return alert("앞 번호와 뒤 번호를 모두 입력하세요.");
+
+    $("saveMappingRowBtn").disabled = true;
+    try {
+      if (editingMappingIndex !== null) {
+        currentSetRows[editingMappingIndex] = [left, right, note];
+        await persistCurrentSet(`‘${name}’의 ${left} ↔ ${right} 항목을 수정했습니다.`);
+      } else {
+        const existingIndex = currentSetRows.findIndex(r => r[0] === left && r[1] === right);
+        if (existingIndex >= 0) {
+          currentSetRows[existingIndex] = [left, right, note];
+          await persistCurrentSet(`기존 ${left} ↔ ${right} 항목의 비고를 갱신했습니다.`);
+        } else {
+          currentSetRows.push([left, right, note]);
+          await persistCurrentSet(`‘${name}’에 ${left} ↔ ${right} 항목을 추가했습니다.`);
+        }
+      }
+      numberSets[name] = mode === "local"
+        ? {count: currentSetRows.length, rows: currentSetRows}
+        : {count: currentSetRows.length};
+      renderNumberSets(name);
+      $("numberSetSelect").value = name;
+      resetMappingEditor();
+      renderMappingRows();
+    } catch (err) {
+      console.error(err);
+      setMappingStatus("직접 편집 저장 실패: " + (err?.message || err), "error");
+    } finally {
+      $("saveMappingRowBtn").disabled = false;
+    }
+  }
+
+  async function deleteMappingRow(index) {
+    const name = $("numberSetSelect").value;
+    const row = currentSetRows[index];
+    if (!name || !row) return;
+    if (!confirm(`${row[0]} ↔ ${row[1]} 항목을 삭제할까요?`)) return;
+
+    try {
+      currentSetRows.splice(index, 1);
+      await persistCurrentSet(`‘${name}’에서 번호쌍 1개를 삭제했습니다.`);
+      numberSets[name] = mode === "local"
+        ? {count: currentSetRows.length, rows: currentSetRows}
+        : {count: currentSetRows.length};
+      renderNumberSets(name);
+      $("numberSetSelect").value = name;
+      resetMappingEditor();
+      renderMappingRows();
+    } catch (err) {
+      console.error(err);
+      setMappingStatus("행 삭제 실패: " + (err?.message || err), "error");
+    }
   }
 
   async function deleteCloudChunks(name) {
@@ -877,6 +1111,7 @@ service cloud.firestore {
   $("numberSetSelect").addEventListener("change", async () => {
     $("leftNumber").value = "";
     $("rightNumber").value = "";
+    $("lookupNote").value = "";
     await loadSelectedSet();
   });
   $("forwardLookupBtn").addEventListener("click", lookupForward);
@@ -886,6 +1121,21 @@ service cloud.firestore {
   $("leftNumber").addEventListener("change", () => { if ($("leftNumber").value.trim()) lookupForward(); });
   $("rightNumber").addEventListener("change", () => { if ($("rightNumber").value.trim()) lookupReverse(); });
   $("uploadMappingBtn").addEventListener("click", uploadMapping);
+  $("saveMappingRowBtn").addEventListener("click", saveMappingRow);
+  $("cancelMappingEditBtn").addEventListener("click", () => {
+    resetMappingEditor();
+    renderMappingRows();
+  });
+  $("mappingSearchInput").addEventListener("input", renderMappingRows);
+  $("editLeftNumber").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); $("editRightNumber").focus(); }
+  });
+  $("editRightNumber").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); $("editNote").focus(); }
+  });
+  $("editNote").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); saveMappingRow(); }
+  });
 
   $("saveWordBtn").addEventListener("click", upsertEntry);
   $("cancelEditBtn").addEventListener("click", cancelEdit);
