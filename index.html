@@ -154,6 +154,29 @@
       </div>
       <div id="scaleResult" class="result">1/100 → 1/200 : 50% 크기로 축소 (현재보다 50% 줄임)</div>
       <div class="hint">계산식: 기존 축척의 분모 ÷ 원하는 축척의 분모 × 100</div>
+
+      <div style="margin-top:22px;padding-top:18px;border-top:1px dashed var(--line)">
+        <h3 style="margin:0 0 14px;font-size:16px">길이 기준 스케일 계산</h3>
+        <div class="row">
+          <div class="field grow">
+            <label for="measuredLength">계측길이</label>
+            <div class="scale-box">
+              <input id="measuredLength" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="예: 12.50">
+              <span class="scale-prefix" style="font-size:16px">cm</span>
+            </div>
+          </div>
+          <div class="field grow">
+            <label for="actualLength">실제길이</label>
+            <div class="scale-box">
+              <input id="actualLength" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="예: 10.00">
+              <span class="scale-prefix" style="font-size:16px">cm</span>
+            </div>
+          </div>
+          <button id="lengthCalcBtn" class="primary">계산</button>
+        </div>
+        <div id="lengthScaleResult" class="result">계측길이와 실제길이를 입력하세요.</div>
+        <div class="hint">Illustrator 스케일 값 = 실제길이 ÷ 계측길이 × 100</div>
+      </div>
     </section>
 
     <section class="card">
@@ -187,24 +210,28 @@
 
       <div class="lookup-grid">
         <div class="field">
-          <label for="leftNumber">앞 번호</label>
+          <label for="leftNumber">보고서 번호</label>
           <input id="leftNumber" type="text" inputmode="numeric" placeholder="예: 125">
         </div>
         <div class="lookup-buttons">
-          <button id="forwardLookupBtn" class="primary">앞 → 뒤</button>
-          <button id="reverseLookupBtn">뒤 → 앞</button>
+          <button id="forwardLookupBtn" class="primary">보고서→표준</button>
+          <button id="reverseLookupBtn">표준→보고서</button>
         </div>
         <div class="field">
-          <label for="rightNumber">뒤 번호</label>
+          <label for="rightNumber">표준유물시스템 번호</label>
           <input id="rightNumber" type="text" inputmode="numeric" placeholder="예: 7543">
         </div>
       </div>
       <div id="lookupResult" class="result">항목을 선택하고 어느 한쪽 번호를 입력하세요.</div>
       <div class="field" style="margin-top:12px">
         <label for="lookupNote">비고</label>
-        <textarea id="lookupNote" class="note-output" readonly placeholder="조회된 번호의 비고가 여기에 표시됩니다."></textarea>
+        <textarea id="lookupNote" class="note-output" placeholder="조회된 항목의 비고를 입력하거나 수정할 수 있습니다."></textarea>
       </div>
-      <div class="hint">예: ‘6차’ 표에 125 ↔ 7543이 등록돼 있으면 125를 넣어 7543을 찾거나, 반대로 7543을 넣어 125를 찾을 수 있습니다. 비고도 함께 표시됩니다. Enter 키로도 조회됩니다.</div>
+      <div class="toolbar">
+        <button id="saveLookupNoteBtn" class="primary" disabled>비고 저장</button>
+        <span id="lookupNoteStatus" class="msg" style="align-self:center"></span>
+      </div>
+      <div class="hint">예: ‘6차’ 표에 보고서 번호 125 ↔ 표준유물시스템 번호 7543이 등록돼 있으면 어느 쪽 번호로도 조회할 수 있습니다. 한 건이 조회되면 비고를 바로 입력·수정한 뒤 저장할 수 있습니다.</div>
 
       <div class="dataset-manage">
         <h3 style="margin:0 0 10px;font-size:16px">번호표 업로드 / 관리</h3>
@@ -220,8 +247,8 @@
           <button id="uploadMappingBtn" class="primary">업로드 / 교체</button>
         </div>
         <div class="hint">
-          첫 번째 열은 ‘앞 번호’, 두 번째 열은 ‘뒤 번호’, 세 번째 열은 ‘비고’로 읽습니다. 비고는 비워도 됩니다.
-          첫 행에 <b>앞 번호 / 뒤 번호 / 비고</b> 제목을 넣어도 됩니다.
+          첫 번째 열은 ‘보고서 번호’, 두 번째 열은 ‘표준유물시스템 번호’, 세 번째 열은 ‘비고’로 읽습니다. 비고는 비워도 됩니다.
+          첫 행에 <b>보고서 번호 / 표준유물시스템 번호 / 비고</b> 제목을 넣어도 됩니다.
           같은 이름(예: 6차)으로 다시 업로드하면 기존 표를 교체합니다. 첫 번째 시트만 사용합니다.
         </div>
         <div id="mappingMsg" class="msg" style="margin-top:10px"></div>
@@ -233,11 +260,11 @@
           <h3 style="margin:0 0 10px;font-size:16px">현재 선택된 번호표 직접 편집</h3>
           <div class="mapping-edit-form">
             <div class="field">
-              <label for="editLeftNumber">앞 번호</label>
+              <label for="editLeftNumber">보고서 번호</label>
               <input id="editLeftNumber" type="text" inputmode="numeric" placeholder="예: 125">
             </div>
             <div class="field">
-              <label for="editRightNumber">뒤 번호</label>
+              <label for="editRightNumber">표준유물시스템 번호</label>
               <input id="editRightNumber" type="text" inputmode="numeric" placeholder="예: 7543">
             </div>
             <div class="field">
@@ -250,17 +277,10 @@
             </div>
           </div>
 
-          <div class="dict-tools">
-            <div class="field">
-              <label for="mappingSearchInput">현재 번호표 검색</label>
-              <input id="mappingSearchInput" type="text" placeholder="앞 번호, 뒤 번호, 비고 검색">
-            </div>
-          </div>
-
           <div class="table-wrap">
             <table>
               <thead>
-                <tr><th>앞 번호</th><th>뒤 번호</th><th>비고</th><th>관리</th></tr>
+                <tr><th>보고서 번호</th><th>표준유물시스템 번호</th><th>비고</th><th>관리</th></tr>
               </thead>
               <tbody id="mappingRowsBody"></tbody>
             </table>
@@ -365,6 +385,7 @@ service cloud.firestore {
   let numberSets = {};
   let currentSetRows = [];
   let editingMappingIndex = null;
+  let lookupMatchedIndex = null;
   let mode = "local";
   let db = null;
   let editingKey = null;
@@ -450,6 +471,42 @@ service cloud.firestore {
     return Number.isInteger(n) ? n.toLocaleString("ko-KR") : n.toLocaleString("ko-KR",{maximumFractionDigits:4});
   }
 
+  function calculateLengthScale() {
+    const measured = Number($("measuredLength").value);
+    const actual = Number($("actualLength").value);
+    const out = $("lengthScaleResult");
+
+    if (!(measured > 0) || !(actual > 0)) {
+      out.textContent = "계측길이와 실제길이에 0보다 큰 값을 입력하세요.";
+      return;
+    }
+
+    const scale = (actual / measured) * 100;
+    const change = scale - 100;
+
+    const scaleText = scale.toLocaleString("ko-KR", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    });
+
+    const changeText = Math.abs(change).toLocaleString("ko-KR", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    });
+
+    let description;
+    if (Math.abs(change) < 0.000001) {
+      description = "변경 없음";
+    } else if (change < 0) {
+      description = `현재보다 ${changeText}% 축소`;
+    } else {
+      description = `현재보다 ${changeText}% 확대`;
+    }
+
+    out.textContent =
+      `${measured.toFixed(2)} cm → ${actual.toFixed(2)} cm : Illustrator 스케일 ${scaleText}% (${description})`;
+  }
+
   function normalizeCell(v) {
     return String(v ?? "").trim();
   }
@@ -458,8 +515,8 @@ service cloud.firestore {
     const x = normalizeCell(a).toLowerCase().replace(/\s+/g,"");
     const y = normalizeCell(b).toLowerCase().replace(/\s+/g,"");
     const z = normalizeCell(c).toLowerCase().replace(/\s+/g,"");
-    const leftWords = ["앞번호","원번호","입력번호","번호1","left","from"];
-    const rightWords = ["뒤번호","대응번호","출력번호","번호2","right","to"];
+    const leftWords = ["보고서번호","앞번호","원번호","입력번호","번호1","left","from"];
+    const rightWords = ["표준유물시스템번호","표준번호","뒤번호","대응번호","출력번호","번호2","right","to"];
     const noteWords = ["비고","메모","note","remark"];
     return leftWords.some(w => x.includes(w)) ||
       rightWords.some(w => y.includes(w)) ||
@@ -562,7 +619,7 @@ service cloud.firestore {
     else {
       currentSetRows = [];
       $("lookupResult").textContent = "먼저 번호 대응표를 업로드하세요.";
-      $("lookupNote").value = "";
+      resetLookupNoteEditor();
       renderMappingRows();
     }
   }
@@ -573,7 +630,7 @@ service cloud.firestore {
     resetMappingEditor();
     if (!name) {
       $("lookupResult").textContent = "항목을 선택하세요.";
-      $("lookupNote").value = "";
+      resetLookupNoteEditor();
       renderMappingRows();
       return;
     }
@@ -597,7 +654,7 @@ service cloud.firestore {
           : [];
       }
       $("lookupResult").textContent = `‘${name}’ 번호표 ${currentSetRows.length.toLocaleString("ko-KR")}쌍 준비됨.`;
-      $("lookupNote").value = "";
+      resetLookupNoteEditor();
       renderMappingRows();
     } catch (err) {
       console.error(err);
@@ -609,56 +666,129 @@ service cloud.firestore {
     return [...new Set(values)];
   }
 
-  function lookupForward() {
-    const name = $("numberSetSelect").value;
-    const value = $("leftNumber").value.trim();
-    if (!name) return $("lookupResult").textContent = "먼저 항목을 선택하세요.";
-    if (!value) return $("lookupResult").textContent = "앞 번호를 입력하세요.";
+  function resetLookupNoteEditor(message = "") {
+    lookupMatchedIndex = null;
+    $("lookupNote").value = "";
+    $("saveLookupNoteBtn").disabled = true;
+    $("lookupNoteStatus").textContent = message;
+  }
 
-    const hits = currentSetRows.filter(r => r[0] === value);
-    if (!hits.length) {
-      $("rightNumber").value = "";
-      $("lookupNote").value = "";
-      $("lookupResult").textContent = `‘${name}’에서 앞 번호 ${value}에 대응하는 값이 없습니다.`;
+  function enableLookupNoteEditor(index, note = "") {
+    lookupMatchedIndex = index;
+    $("lookupNote").value = note || "";
+    $("saveLookupNoteBtn").disabled = false;
+    $("lookupNoteStatus").textContent = "비고를 수정한 뒤 저장할 수 있습니다.";
+  }
+
+  async function saveLookupNote() {
+    if (lookupMatchedIndex === null || !currentSetRows[lookupMatchedIndex]) {
+      $("lookupNoteStatus").textContent = "먼저 번호를 조회하세요.";
       return;
     }
 
-    const rightValues = uniqueValues(hits.map(r => r[1]));
-    $("rightNumber").value = rightValues.join(", ");
-    $("lookupNote").value = hits.map(r => {
-      const note = r[2] || "(비고 없음)";
-      return hits.length > 1 ? `${r[1]} : ${note}` : note;
-    }).join("\n");
+    const name = $("numberSetSelect").value;
+    const newNote = $("lookupNote").value.trim();
+    const row = currentSetRows[lookupMatchedIndex];
+    row[2] = newNote;
+
+    $("saveLookupNoteBtn").disabled = true;
+    try {
+      await persistCurrentSet(`‘${name}’의 비고를 저장했습니다.`);
+      renderMappingRows();
+      $("lookupNoteStatus").textContent = "비고 저장 완료";
+    } catch (err) {
+      console.error(err);
+      $("lookupNoteStatus").textContent = "비고 저장 실패";
+      setMappingStatus("비고 저장 실패: " + (err?.message || err), "error");
+    } finally {
+      $("saveLookupNoteBtn").disabled = false;
+    }
+  }
+
+  function lookupForward() {
+    const name = $("numberSetSelect").value;
+    const value = $("leftNumber").value.trim();
+    if (!name) {
+      resetLookupNoteEditor();
+      return $("lookupResult").textContent = "먼저 항목을 선택하세요.";
+    }
+    if (!value) {
+      resetLookupNoteEditor();
+      return $("lookupResult").textContent = "보고서 번호를 입력하세요.";
+    }
+
+    const hits = currentSetRows
+      .map((row, index) => ({row, index}))
+      .filter(item => item.row[0] === value);
+
+    if (!hits.length) {
+      $("rightNumber").value = "";
+      resetLookupNoteEditor();
+      $("lookupResult").textContent = `‘${name}’에서 보고서 번호 ${value}에 대응하는 값이 없습니다.`;
+      return;
+    }
+
+    const standardValues = uniqueValues(hits.map(item => item.row[1]));
+    $("rightNumber").value = standardValues.join(", ");
+
+    if (hits.length === 1) {
+      enableLookupNoteEditor(hits[0].index, hits[0].row[2] || "");
+    } else {
+      lookupMatchedIndex = null;
+      $("lookupNote").value = hits.map(item => {
+        const note = item.row[2] || "(비고 없음)";
+        return `${item.row[1]} : ${note}`;
+      }).join("\n");
+      $("saveLookupNoteBtn").disabled = true;
+      $("lookupNoteStatus").textContent = "여러 항목이 일치합니다. 아래 직접 편집에서 수정하세요.";
+    }
 
     $("lookupResult").textContent = hits.length === 1
-      ? `${value} → ${hits[0][1]}`
-      : `${value} → ${rightValues.join(", ")} (${hits.length}개 일치)`;
+      ? `${value} → ${hits[0].row[1]}`
+      : `${value} → ${standardValues.join(", ")} (${hits.length}개 일치)`;
   }
 
   function lookupReverse() {
     const name = $("numberSetSelect").value;
     const value = $("rightNumber").value.trim();
-    if (!name) return $("lookupResult").textContent = "먼저 항목을 선택하세요.";
-    if (!value) return $("lookupResult").textContent = "뒤 번호를 입력하세요.";
+    if (!name) {
+      resetLookupNoteEditor();
+      return $("lookupResult").textContent = "먼저 항목을 선택하세요.";
+    }
+    if (!value) {
+      resetLookupNoteEditor();
+      return $("lookupResult").textContent = "표준유물시스템 번호를 입력하세요.";
+    }
 
-    const hits = currentSetRows.filter(r => r[1] === value);
+    const hits = currentSetRows
+      .map((row, index) => ({row, index}))
+      .filter(item => item.row[1] === value);
+
     if (!hits.length) {
       $("leftNumber").value = "";
-      $("lookupNote").value = "";
-      $("lookupResult").textContent = `‘${name}’에서 뒤 번호 ${value}에 대응하는 값이 없습니다.`;
+      resetLookupNoteEditor();
+      $("lookupResult").textContent = `‘${name}’에서 표준유물시스템 번호 ${value}에 대응하는 값이 없습니다.`;
       return;
     }
 
-    const leftValues = uniqueValues(hits.map(r => r[0]));
-    $("leftNumber").value = leftValues.join(", ");
-    $("lookupNote").value = hits.map(r => {
-      const note = r[2] || "(비고 없음)";
-      return hits.length > 1 ? `${r[0]} : ${note}` : note;
-    }).join("\n");
+    const reportValues = uniqueValues(hits.map(item => item.row[0]));
+    $("leftNumber").value = reportValues.join(", ");
+
+    if (hits.length === 1) {
+      enableLookupNoteEditor(hits[0].index, hits[0].row[2] || "");
+    } else {
+      lookupMatchedIndex = null;
+      $("lookupNote").value = hits.map(item => {
+        const note = item.row[2] || "(비고 없음)";
+        return `${item.row[0]} : ${note}`;
+      }).join("\n");
+      $("saveLookupNoteBtn").disabled = true;
+      $("lookupNoteStatus").textContent = "여러 항목이 일치합니다. 아래 직접 편집에서 수정하세요.";
+    }
 
     $("lookupResult").textContent = hits.length === 1
-      ? `${hits[0][0]} ← ${value}`
-      : `${leftValues.join(", ")} ← ${value} (${hits.length}개 일치)`;
+      ? `${hits[0].row[0]} ← ${value}`
+      : `${reportValues.join(", ")} ← ${value} (${hits.length}개 일치)`;
   }
 
   function resetMappingEditor() {
@@ -675,22 +805,14 @@ service cloud.firestore {
     const countEl = $("mappingRowsCount");
     if (!body || !countEl) return;
 
-    const query = ($("mappingSearchInput")?.value || "").trim().toLowerCase();
-    const indexed = currentSetRows
-      .map((row, index) => ({row, index}))
-      .filter(({row}) => {
-        if (!query) return true;
-        return row.some(v => String(v ?? "").toLowerCase().includes(query));
-      });
-
     body.innerHTML = "";
-    if (!indexed.length) {
+    if (!currentSetRows.length) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="4" class="empty">${currentSetRows.length ? "검색 결과가 없습니다." : "현재 항목에 번호쌍이 없습니다."}</td>`;
+      tr.innerHTML = `<td colspan="4" class="empty">현재 항목에 번호쌍이 없습니다.</td>`;
       body.appendChild(tr);
     } else {
-      const shown = indexed.slice(0, 300);
-      for (const {row, index} of shown) {
+      const shown = currentSetRows.slice(0, 300);
+      shown.forEach((row, index) => {
         const tr = document.createElement("tr");
         for (let col = 0; col < 3; col++) {
           const td = document.createElement("td");
@@ -714,11 +836,11 @@ service cloud.firestore {
         tdA.append(edit, del);
         tr.appendChild(tdA);
         body.appendChild(tr);
-      }
+      });
     }
 
-    const suffix = indexed.length > 300 ? " · 화면에는 검색 결과 중 300개까지 표시" : "";
-    countEl.textContent = `현재 표 전체 ${currentSetRows.length.toLocaleString("ko-KR")}쌍 · 검색 결과 ${indexed.length.toLocaleString("ko-KR")}쌍${suffix}`;
+    const suffix = currentSetRows.length > 300 ? " · 화면에는 앞 300개까지 표시" : "";
+    countEl.textContent = `현재 표 전체 ${currentSetRows.length.toLocaleString("ko-KR")}쌍${suffix}`;
   }
 
   function startMappingEdit(index) {
@@ -755,7 +877,7 @@ service cloud.firestore {
     const left = $("editLeftNumber").value.trim();
     const right = $("editRightNumber").value.trim();
     const note = $("editNote").value.trim();
-    if (!left || !right) return alert("앞 번호와 뒤 번호를 모두 입력하세요.");
+    if (!left || !right) return alert("보고서 번호와 표준유물시스템 번호를 모두 입력하세요.");
 
     $("saveMappingRowBtn").disabled = true;
     try {
@@ -1098,6 +1220,10 @@ service cloud.firestore {
   $("oldScale").addEventListener("input", calculateScale);
   $("newScale").addEventListener("input", calculateScale);
 
+  $("lengthCalcBtn").addEventListener("click", calculateLengthScale);
+  $("measuredLength").addEventListener("input", calculateLengthScale);
+  $("actualLength").addEventListener("input", calculateLengthScale);
+
   $("convertBtn").addEventListener("click", () => $("outputText").value = transformText($("sourceText").value));
   $("swapBackBtn").addEventListener("click", () => { $("sourceText").value = $("outputText").value; $("sourceText").focus(); });
   $("clearTextBtn").addEventListener("click", () => { $("sourceText").value=""; $("outputText").value=""; $("sourceText").focus(); });
@@ -1111,11 +1237,12 @@ service cloud.firestore {
   $("numberSetSelect").addEventListener("change", async () => {
     $("leftNumber").value = "";
     $("rightNumber").value = "";
-    $("lookupNote").value = "";
+    resetLookupNoteEditor();
     await loadSelectedSet();
   });
   $("forwardLookupBtn").addEventListener("click", lookupForward);
   $("reverseLookupBtn").addEventListener("click", lookupReverse);
+  $("saveLookupNoteBtn").addEventListener("click", saveLookupNote);
   $("leftNumber").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); lookupForward(); } });
   $("rightNumber").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); lookupReverse(); } });
   $("leftNumber").addEventListener("change", () => { if ($("leftNumber").value.trim()) lookupForward(); });
@@ -1126,7 +1253,6 @@ service cloud.firestore {
     resetMappingEditor();
     renderMappingRows();
   });
-  $("mappingSearchInput").addEventListener("input", renderMappingRows);
   $("editLeftNumber").addEventListener("keydown", e => {
     if (e.key === "Enter") { e.preventDefault(); $("editRightNumber").focus(); }
   });
@@ -1147,6 +1273,7 @@ service cloud.firestore {
   $("hanjaInput").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); upsertEntry(); } });
 
   calculateScale();
+  calculateLengthScale();
   await initFirebase();
 </script>
 </body>
