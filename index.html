@@ -646,7 +646,16 @@ service cloud.firestore {
         });
         chunks.sort((a,b) => Number(a.id) - Number(b.id));
         currentSetRows = chunks.flatMap(c => c.rows)
-          .map(r => [normalizeCell(r?.[0]), normalizeCell(r?.[1]), normalizeCell(r?.[2])])
+          .map(r => {
+            if (Array.isArray(r)) {
+              return [normalizeCell(r?.[0]), normalizeCell(r?.[1]), normalizeCell(r?.[2])];
+            }
+            return [
+              normalizeCell(r?.reportNumber),
+              normalizeCell(r?.standardNumber),
+              normalizeCell(r?.note)
+            ];
+          })
           .filter(([a,b]) => a && b);
       } else {
         currentSetRows = Array.isArray(numberSets[name]?.rows)
@@ -955,7 +964,13 @@ service cloud.firestore {
       chunks.slice(start,start+400).forEach((rowsChunk, offset) => {
         const index = start + offset;
         const ref = doc(db, SET_COLLECTION, setDocId(name), "chunks", String(index).padStart(6,"0"));
-        batch.set(ref, {rows: rowsChunk});
+        batch.set(ref, {
+          rows: rowsChunk.map(row => ({
+            reportNumber: normalizeCell(row?.[0]),
+            standardNumber: normalizeCell(row?.[1]),
+            note: normalizeCell(row?.[2])
+          }))
+        });
       });
       await batch.commit();
     }
