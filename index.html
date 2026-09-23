@@ -106,7 +106,11 @@
     }
     .dataset-list{margin-top:12px}
     .mapping-editor{
-      margin-top:18px;padding-top:18px;border-top:1px dashed var(--line)
+      margin-top:18px;border-top:1px dashed var(--line);padding-top:12px
+    }
+    .mapping-editor > summary{
+      cursor:pointer;font-weight:800;font-size:16px;
+      padding:8px 2px;list-style-position:outside
     }
     .mapping-edit-form{
       display:grid;grid-template-columns:minmax(120px,.7fr) minmax(120px,.7fr) minmax(220px,1.6fr) auto;
@@ -256,8 +260,9 @@
           <div id="numberSetList"></div>
         </div>
 
-        <div class="mapping-editor">
-          <h3 style="margin:0 0 10px;font-size:16px">현재 선택된 번호표 직접 편집</h3>
+        <details class="mapping-editor" id="mappingEditorDetails">
+          <summary>현재 선택된 번호표 직접 편집</summary>
+          <div style="margin-top:14px">
           <div class="mapping-edit-form">
             <div class="field">
               <label for="editLeftNumber">보고서 번호</label>
@@ -285,8 +290,15 @@
               <tbody id="mappingRowsBody"></tbody>
             </table>
           </div>
+          <div class="toolbar" style="justify-content:center;margin-top:12px">
+            <button id="mappingPrevPageBtn" class="ghost">이전</button>
+            <span id="mappingPageInfo" class="msg" style="align-self:center"></span>
+            <button id="mappingNextPageBtn" class="ghost">다음</button>
+          </div>
           <div id="mappingRowsCount" class="hint"></div>
-        </div>
+          <div class="hint">직접 편집 표는 페이지당 50행씩 표시됩니다. 번호표가 300행을 넘더라도 모든 행을 페이지 이동으로 수정할 수 있습니다.</div>
+          </div>
+        </details>
       </div>
     </section>
 
@@ -386,6 +398,8 @@ service cloud.firestore {
   let currentSetRows = [];
   let editingMappingIndex = null;
   let lookupMatchedIndex = null;
+  let mappingCurrentPage = 1;
+  const MAPPING_ROWS_PER_PAGE = 50;
   let mode = "local";
   let db = null;
   let editingKey = null;
@@ -618,6 +632,7 @@ service cloud.firestore {
     if (names.length) loadSelectedSet();
     else {
       currentSetRows = [];
+      mappingCurrentPage = 1;
       $("lookupResult").textContent = "먼저 번호 대응표를 업로드하세요.";
       resetLookupNoteEditor();
       renderMappingRows();
@@ -627,6 +642,7 @@ service cloud.firestore {
   async function loadSelectedSet() {
     const name = $("numberSetSelect").value;
     currentSetRows = [];
+    mappingCurrentPage = 1;
     resetMappingEditor();
     if (!name) {
       $("lookupResult").textContent = "항목을 선택하세요.";
@@ -812,17 +828,30 @@ service cloud.firestore {
   function renderMappingRows() {
     const body = $("mappingRowsBody");
     const countEl = $("mappingRowsCount");
-    if (!body || !countEl) return;
+    const pageInfo = $("mappingPageInfo");
+    const prevBtn = $("mappingPrevPageBtn");
+    const nextBtn = $("mappingNextPageBtn");
+    if (!body || !countEl || !pageInfo || !prevBtn || !nextBtn) return;
+
+    const totalRows = currentSetRows.length;
+    const totalPages = Math.max(1, Math.ceil(totalRows / MAPPING_ROWS_PER_PAGE));
+    if (mappingCurrentPage > totalPages) mappingCurrentPage = totalPages;
+    if (mappingCurrentPage < 1) mappingCurrentPage = 1;
+
+    const start = (mappingCurrentPage - 1) * MAPPING_ROWS_PER_PAGE;
+    const end = Math.min(start + MAPPING_ROWS_PER_PAGE, totalRows);
 
     body.innerHTML = "";
-    if (!currentSetRows.length) {
+
+    if (!totalRows) {
       const tr = document.createElement("tr");
       tr.innerHTML = `<td colspan="4" class="empty">현재 항목에 번호쌍이 없습니다.</td>`;
       body.appendChild(tr);
     } else {
-      const shown = currentSetRows.slice(0, 300);
-      shown.forEach((row, index) => {
+      currentSetRows.slice(start, end).forEach((row, offset) => {
+        const index = start + offset;
         const tr = document.createElement("tr");
+
         for (let col = 0; col < 3; col++) {
           const td = document.createElement("td");
           td.textContent = row[col] || "";
@@ -848,8 +877,16 @@ service cloud.firestore {
       });
     }
 
-    const suffix = currentSetRows.length > 300 ? " · 화면에는 앞 300개까지 표시" : "";
-    countEl.textContent = `현재 표 전체 ${currentSetRows.length.toLocaleString("ko-KR")}쌍${suffix}`;
+    pageInfo.textContent = totalRows
+      ? `${mappingCurrentPage} / ${totalPages} 페이지`
+      : `1 / 1 페이지`;
+
+    prevBtn.disabled = mappingCurrentPage <= 1;
+    nextBtn.disabled = mappingCurrentPage >= totalPages;
+
+    countEl.textContent = totalRows
+      ? `현재 표 전체 ${totalRows.toLocaleString("ko-KR")}쌍 · ${start + 1}–${end}행 표시`
+      : `현재 표 전체 0쌍`;
   }
 
   function startMappingEdit(index) {
@@ -900,6 +937,7 @@ service cloud.firestore {
           await persistCurrentSet(`기존 ${left} ↔ ${right} 항목의 비고를 갱신했습니다.`);
         } else {
           currentSetRows.push([left, right, note]);
+          mappingCurrentPage = Math.max(1, Math.ceil(currentSetRows.length / MAPPING_ROWS_PER_PAGE));
           await persistCurrentSet(`‘${name}’에 ${left} ↔ ${right} 항목을 추가했습니다.`);
         }
       }
@@ -1008,6 +1046,7 @@ service cloud.firestore {
       }
 
       $("mappingFile").value = "";
+      mappingCurrentPage = 1;
       renderNumberSets(name);
       $("numberSetSelect").value = name;
       await loadSelectedSet();
@@ -1267,6 +1306,19 @@ service cloud.firestore {
   $("cancelMappingEditBtn").addEventListener("click", () => {
     resetMappingEditor();
     renderMappingRows();
+  });
+  $("mappingPrevPageBtn").addEventListener("click", () => {
+    if (mappingCurrentPage > 1) {
+      mappingCurrentPage -= 1;
+      renderMappingRows();
+    }
+  });
+  $("mappingNextPageBtn").addEventListener("click", () => {
+    const totalPages = Math.max(1, Math.ceil(currentSetRows.length / MAPPING_ROWS_PER_PAGE));
+    if (mappingCurrentPage < totalPages) {
+      mappingCurrentPage += 1;
+      renderMappingRows();
+    }
   });
   $("editLeftNumber").addEventListener("keydown", e => {
     if (e.key === "Enter") { e.preventDefault(); $("editRightNumber").focus(); }
