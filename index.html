@@ -125,7 +125,6 @@
     .set-meta{min-width:0}
     .set-name{font-weight:800}
     .set-count{font-size:12px;color:var(--muted);margin-top:2px}
-    .footer{color:var(--muted);font-size:12px;margin-top:18px;text-align:center}
     @media (max-width:700px){
       .dict-form,.dataset-upload,.mapping-edit-form{grid-template-columns:1fr}
       .lookup-grid{grid-template-columns:1fr}
@@ -156,8 +155,8 @@
         </div>
         <button id="calcBtn" class="primary">계산</button>
       </div>
-      <div id="scaleResult" class="result">1/100 → 1/200 : 50% 크기로 축소 (현재보다 50% 줄임)</div>
-      <div class="hint">계산식: 기존 축척의 분모 ÷ 원하는 축척의 분모 × 100</div>
+      <div id="scaleResult" class="result">1/100 → 1/200 : Illustrator 스케일 50% (현재보다 50% 축소)</div>
+      <div class="hint">Illustrator 스케일 값 = 기존 축척의 분모 ÷ 원하는 축척의 분모 × 100</div>
 
       <div style="margin-top:22px;padding-top:18px;border-top:1px dashed var(--line)">
         <h3 style="margin:0 0 14px;font-size:16px">길이 기준 스케일 계산</h3>
@@ -192,7 +191,6 @@
       <div class="toolbar">
         <button id="convertBtn" class="primary">한자로 변환</button>
         <button id="quickCopyBtn">클립보드 복사</button>
-        <button id="swapBackBtn" class="ghost">결과를 입력칸으로</button>
         <button id="clearTextBtn" class="ghost">비우기</button>
       </div>
       <div class="field" style="margin-top:14px">
@@ -227,7 +225,7 @@
           <input id="rightNumber" type="text" inputmode="numeric" placeholder="예: 7543">
         </div>
       </div>
-      <div id="lookupResult" class="result">항목을 선택하고 어느 한쪽 번호를 입력하세요.</div>
+      <div id="lookupResult" class="result">항목을 선택하고 번호를 입력하세요.</div>
       <div class="field" style="margin-top:12px">
         <label for="lookupNote">비고</label>
         <textarea id="lookupNote" class="note-output" placeholder="조회된 항목의 비고를 입력하거나 수정할 수 있습니다."></textarea>
@@ -347,40 +345,8 @@
         <button id="dictNextPageBtn" class="ghost">다음</button>
       </div>
       <div id="dictCount" class="hint"></div>
-
-      <details>
-        <summary>Firebase 연결 방법 / Rules 보기</summary>
-        <p class="hint">
-          이 HTML 파일 안의 <b>FIREBASE_CONFIG</b> 값만 자신의 Firebase 웹 앱 설정값으로 바꾸면
-          한자 사전과 번호 대응표가 Firestore에 저장됩니다.
-        </p>
-        <pre>const FIREBASE_CONFIG = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  appId: "YOUR_APP_ID"
-};</pre>
-        <p class="hint">첫 테스트용 Firestore Rules:</p>
-        <pre>rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /dictionary/{docId} {
-      allow read, write: if true;
-    }
-    match /numberSets/{setId} {
-      allow read, write: if true;
-      match /chunks/{chunkId} {
-        allow read, write: if true;
-      }
-    }
-  }
-}</pre>
-        <p class="hint">이 규칙은 링크를 아는 사람도 데이터를 수정할 수 있습니다. 개인용 시험에는 간단하지만, 장기 운용 시 로그인 제한을 추가할 수 있습니다.</p>
-      </details>
-    </section>
+</section>
   </div>
-
-  <div class="footer">Firebase 설정 시 한자 사전과 번호 대응표(비고 포함)가 클라우드에 저장됩니다. 설정 전에는 현재 브라우저에만 저장됩니다.</div>
 </main>
 
 <script type="module">
@@ -473,20 +439,36 @@ service cloud.firestore {
     const oldValue = Number($("oldScale").value);
     const newValue = Number($("newScale").value);
     const out = $("scaleResult");
+
     if (!(oldValue > 0) || !(newValue > 0)) {
       out.textContent = "축척의 분모에는 0보다 큰 숫자를 입력하세요.";
       return;
     }
-    const factor = oldValue / newValue;
-    const percent = factor * 100;
-    const change = (factor - 1) * 100;
-    const pct = formatNumber(percent);
-    const changePct = formatNumber(Math.abs(change));
-    let desc;
-    if (Math.abs(change) < 0.0000001) desc = `${pct}% 크기 — 변경 없음`;
-    else if (change < 0) desc = `${pct}% 크기로 축소 (현재보다 ${changePct}% 줄임)`;
-    else desc = `${pct}% 크기로 확대 (현재보다 ${changePct}% 늘림)`;
-    out.textContent = `1/${formatNumber(oldValue)} → 1/${formatNumber(newValue)} : ${desc}`;
+
+    const scale = (oldValue / newValue) * 100;
+    const change = scale - 100;
+
+    const scaleText = scale.toLocaleString("ko-KR", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    });
+
+    const changeText = Math.abs(change).toLocaleString("ko-KR", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    });
+
+    let description;
+    if (Math.abs(change) < 0.000001) {
+      description = "변경 없음";
+    } else if (change < 0) {
+      description = `현재보다 ${changeText}% 축소`;
+    } else {
+      description = `현재보다 ${changeText}% 확대`;
+    }
+
+    out.textContent =
+      `1/${formatNumber(oldValue)} → 1/${formatNumber(newValue)} : Illustrator 스케일 ${scaleText}% (${description})`;
   }
 
   function formatNumber(n) {
@@ -594,8 +576,7 @@ service cloud.firestore {
       for (const name of names) {
         const opt = document.createElement("option");
         opt.value = name;
-        const count = numberSets[name]?.count ?? (numberSets[name]?.rows?.length || 0);
-        opt.textContent = `${name} (${Number(count).toLocaleString("ko-KR")}쌍)`;
+        opt.textContent = name;
         select.appendChild(opt);
       }
       select.value = names.includes(previous) ? previous : names[0];
@@ -686,7 +667,7 @@ service cloud.firestore {
           ? numberSets[name].rows.map(r => [normalizeCell(r?.[0]), normalizeCell(r?.[1]), normalizeCell(r?.[2])])
           : [];
       }
-      $("lookupResult").textContent = `‘${name}’ 번호표 ${currentSetRows.length.toLocaleString("ko-KR")}쌍 준비됨.`;
+      $("lookupResult").textContent = "어느 한쪽 번호를 입력해 조회하세요.";
       resetLookupNoteEditor();
       renderMappingRows();
     } catch (err) {
@@ -1315,34 +1296,6 @@ service cloud.firestore {
   $("actualLength").addEventListener("input", calculateLengthScale);
 
   $("convertBtn").addEventListener("click", () => $("outputText").value = transformText($("sourceText").value));
-  $("swapBackBtn").addEventListener("click", () => { $("sourceText").value = $("outputText").value; $("sourceText").focus(); });
-  $("clearTextBtn").addEventListener("click", () => { $("sourceText").value=""; $("outputText").value=""; $("sourceText").focus(); });
-  async function copyConvertedText() {
-    const text = $("outputText").value;
-    if (!text) {
-      setStatus("복사할 변환 결과가 없습니다.");
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(text);
-      setStatus("변환 결과를 클립보드에 복사했습니다.", "ok");
-    } catch {
-      $("outputText").select();
-      document.execCommand("copy");
-      setStatus("변환 결과를 클립보드에 복사했습니다.", "ok");
-    }
-  }
-
-  $("quickCopyBtn").addEventListener("click", copyConvertedText);
-  $("copyBtn").addEventListener("click", copyConvertedText);
-
-  $("numberSetSelect").addEventListener("change", async () => {
-    $("leftNumber").value = "";
-    $("rightNumber").value = "";
-    resetLookupNoteEditor();
-    await loadSelectedSet();
-  });
   $("forwardLookupBtn").addEventListener("click", lookupForward);
   $("reverseLookupBtn").addEventListener("click", lookupReverse);
   $("saveLookupNoteBtn").addEventListener("click", saveLookupNote);
