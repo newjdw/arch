@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>축척 · 한자 · 번호 대응 도구</title>
+  <style>
+    :root{
+      --bg:#f4f6f8; --card:#fff; --text:#17202a; --muted:#667085;
+      --line:#dfe4ea; --primary:#2457d6; --primary2:#173ea7;
+      --danger:#c73e3e; --ok:#16803a; --warn:#9a6700;
+      --shadow:0 8px 28px rgba(16,24,40,.08); --radius:16px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",
+      "Noto Sans KR","Apple SD Gothic Neo",sans-serif;
+      color:var(--text); background:var(--bg);
+    }
+    .wrap{max-width:1000px;margin:0 auto;padding:28px 18px 60px}
+    h1{font-size:28px;margin:0 0 8px}
+    .sub{color:var(--muted);margin:0 0 24px;line-height:1.6}
+    .grid{display:grid;gap:18px}
+    .card{
+      background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+      box-shadow:var(--shadow); padding:22px;
+    }
+    .card h2{font-size:20px;margin:0 0 18px}
+    .row{display:flex;gap:12px;align-items:end;flex-wrap:wrap}
+    .field{display:flex;flex-direction:column;gap:7px;min-width:0}
+    .field.grow{flex:1 1 220px}
+    label{font-weight:700;font-size:14px}
+    input,textarea,select,button{font:inherit}
+    input,textarea,select{
+      width:100%;border:1px solid #cfd6df;border-radius:10px;
+      padding:11px 12px;background:#fff;color:var(--text)
+    }
+    input:focus,textarea:focus,select:focus{
+      outline:3px solid rgba(36,87,214,.12);border-color:var(--primary)
+    }
+    textarea{min-height:120px;resize:vertical;line-height:1.65}
+    .scale-box{display:flex;align-items:center;gap:8px}
+    .scale-prefix{font-size:22px;font-weight:800;white-space:nowrap}
+    .scale-box input{max-width:200px}
+    button{
+      border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:700;
+      background:#eef2f6;color:#25324a
+    }
+    button:hover{filter:brightness(.98)}
+    button.primary{background:var(--primary);color:#fff}
+    button.primary:hover{background:var(--primary2)}
+    button.danger{background:#fff0f0;color:var(--danger)}
+    button.ghost{background:#f7f8fa;border:1px solid var(--line)}
+    button.small{padding:7px 10px;font-size:13px}
+    button:disabled{cursor:not-allowed;opacity:.55}
+    .result{
+      margin-top:16px;padding:15px 16px;border-radius:12px;background:#f5f8ff;
+      border:1px solid #d8e3ff;font-weight:800;line-height:1.55
+    }
+    .hint{font-size:13px;color:var(--muted);line-height:1.55;margin-top:9px}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .statusbar{
+      display:flex;gap:10px;align-items:center;justify-content:space-between;
+      flex-wrap:wrap;margin-bottom:12px
+    }
+    .badge{
+      display:inline-flex;align-items:center;gap:7px;border-radius:999px;
+      padding:6px 10px;font-size:13px;font-weight:800;background:#eef2f6
+    }
+    .dot{width:8px;height:8px;border-radius:50%;background:#98a2b3}
+    .badge.cloud .dot{background:var(--ok)}
+    .badge.local .dot{background:var(--warn)}
+    .msg{font-size:13px;color:var(--muted)}
+    .dict-form{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}
+    .dict-tools{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:18px}
+    .dict-tools .field{flex:1 1 220px}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;margin-top:12px}
+    table{width:100%;border-collapse:collapse;min-width:580px}
+    th,td{padding:11px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+    th{background:#f8fafc;font-size:13px;color:#475467}
+    tr:last-child td{border-bottom:0}
+    .actions{display:flex;gap:6px;white-space:nowrap}
+    .empty{text-align:center;color:var(--muted);padding:24px!important}
+    details{
+      margin-top:16px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;
+      background:#fafbfc
+    }
+    summary{cursor:pointer;font-weight:800}
+    code,pre{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+    pre{
+      white-space:pre-wrap;word-break:break-word;background:#111827;color:#f9fafb;
+      padding:14px;border-radius:10px;overflow:auto;font-size:13px;line-height:1.5
+    }
+    .lookup-grid{
+      display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+      gap:12px;align-items:end;margin-top:14px
+    }
+    .lookup-buttons{display:flex;flex-direction:column;gap:7px}
+    .lookup-buttons button{min-width:90px}
+    .dataset-manage{
+      margin-top:18px;padding-top:18px;border-top:1px dashed var(--line)
+    }
+    .dataset-upload{
+      display:grid;grid-template-columns:minmax(150px,.65fr) minmax(220px,1.35fr) auto;
+      gap:10px;align-items:end
+    }
+    .dataset-list{margin-top:12px}
+    .set-row{
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      padding:10px 12px;border-bottom:1px solid var(--line)
+    }
+    .set-row:last-child{border-bottom:0}
+    .set-meta{min-width:0}
+    .set-name{font-weight:800}
+    .set-count{font-size:12px;color:var(--muted);margin-top:2px}
+    .footer{color:var(--muted);font-size:12px;margin-top:18px;text-align:center}
+    @media (max-width:700px){
+      .dict-form,.dataset-upload{grid-template-columns:1fr}
+      .lookup-grid{grid-template-columns:1fr}
+      .lookup-buttons{flex-direction:row}
+      .lookup-buttons button{flex:1}
+      .wrap{padding:18px 12px 40px}
+      .card{padding:17px}
+      h1{font-size:24px}
+    }
+  </style>
+</head>
+<body>
+<main class="wrap">
+  <h1>축척 · 한자 · 번호 대응 도구</h1>
+  <p class="sub">축척 변경 배율 계산, 사용자 한자 사전 변환, 엑셀/CSV 번호 대응표의 양방향 조회를 한 페이지에서 처리합니다.</p>
+
+  <div class="grid">
+    <section class="card">
+      <h2>1. 축척 변환</h2>
+      <div class="row">
+        <div class="field grow">
+          <label for="oldScale">기존 축척</label>
+          <div class="scale-box"><span class="scale-prefix">1 /</span><input id="oldScale" type="number" min="1" step="1" value="100" inputmode="numeric"></div>
+        </div>
+        <div class="field grow">
+          <label for="newScale">원하는 축척</label>
+          <div class="scale-box"><span class="scale-prefix">1 /</span><input id="newScale" type="number" min="1" step="1" value="200" inputmode="numeric"></div>
+        </div>
+        <button id="calcBtn" class="primary">계산</button>
+      </div>
+      <div id="scaleResult" class="result">1/100 → 1/200 : 50% 크기로 축소 (현재보다 50% 줄임)</div>
+      <div class="hint">계산식: 기존 축척의 분모 ÷ 원하는 축척의 분모 × 100</div>
+    </section>
+
+    <section class="card">
+      <h2>2. 한글 → 한자 변환</h2>
+      <div class="field">
+        <label for="sourceText">변환할 문장</label>
+        <textarea id="sourceText" placeholder="예: 무문토기 저부(일부 결실), 구연부 잔존"></textarea>
+      </div>
+      <div class="toolbar">
+        <button id="convertBtn" class="primary">한자로 변환</button>
+        <button id="swapBackBtn" class="ghost">결과를 입력칸으로</button>
+        <button id="clearTextBtn" class="ghost">비우기</button>
+      </div>
+      <div class="field" style="margin-top:14px">
+        <label for="outputText">변환 결과</label>
+        <textarea id="outputText" readonly placeholder="변환 결과가 여기에 표시됩니다."></textarea>
+      </div>
+      <div class="toolbar"><button id="copyBtn">결과 복사</button></div>
+      <div class="hint">등록된 단어가 겹칠 경우 긴 단어를 먼저 적용합니다. 띄어쓰기·줄바꿈·괄호·쉼표 등은 그대로 유지됩니다.</div>
+    </section>
+
+    <section class="card">
+      <h2>3. 번호 대응 조회</h2>
+
+      <div class="field">
+        <label for="numberSetSelect">항목</label>
+        <select id="numberSetSelect">
+          <option value="">등록된 항목 없음</option>
+        </select>
+      </div>
+
+      <div class="lookup-grid">
+        <div class="field">
+          <label for="leftNumber">앞 번호</label>
+          <input id="leftNumber" type="text" inputmode="numeric" placeholder="예: 125">
+        </div>
+        <div class="lookup-buttons">
+          <button id="forwardLookupBtn" class="primary">앞 → 뒤</button>
+          <button id="reverseLookupBtn">뒤 → 앞</button>
+        </div>
+        <div class="field">
+          <label for="rightNumber">뒤 번호</label>
+          <input id="rightNumber" type="text" inputmode="numeric" placeholder="예: 7543">
+        </div>
+      </div>
+      <div id="lookupResult" class="result">항목을 선택하고 어느 한쪽 번호를 입력하세요.</div>
+      <div class="hint">예: ‘6차’ 표에 125 ↔ 7543이 등록돼 있으면 125를 넣어 7543을 찾거나, 반대로 7543을 넣어 125를 찾을 수 있습니다. Enter 키로도 조회됩니다.</div>
+
+      <div class="dataset-manage">
+        <h3 style="margin:0 0 10px;font-size:16px">번호표 업로드 / 관리</h3>
+        <div class="dataset-upload">
+          <div class="field">
+            <label for="numberSetName">항목 이름</label>
+            <input id="numberSetName" type="text" placeholder="예: 6차">
+          </div>
+          <div class="field">
+            <label for="mappingFile">엑셀 또는 CSV</label>
+            <input id="mappingFile" type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
+          </div>
+          <button id="uploadMappingBtn" class="primary">업로드 / 교체</button>
+        </div>
+        <div class="hint">
+          첫 번째 열은 ‘앞 번호’, 두 번째 열은 ‘뒤 번호’로 읽습니다. 첫 행에 <b>앞 번호 / 뒤 번호</b> 제목을 넣어도 됩니다.
+          같은 이름(예: 6차)으로 다시 업로드하면 기존 표를 교체합니다. 첫 번째 시트만 사용합니다.
+        </div>
+        <div id="mappingMsg" class="msg" style="margin-top:10px"></div>
+        <div class="table-wrap dataset-list">
+          <div id="numberSetList"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="statusbar">
+        <h2 style="margin:0">4. 한자 사전 관리</h2>
+        <div id="modeBadge" class="badge local"><span class="dot"></span><span>로컬 저장 모드</span></div>
+      </div>
+      <div id="syncMsg" class="msg">Firebase 설정 전에는 이 브라우저에만 저장됩니다.</div>
+
+      <div class="dict-form" style="margin-top:14px">
+        <div class="field">
+          <label for="hangulInput">한글</label>
+          <input id="hangulInput" type="text" placeholder="예: 무문토기">
+        </div>
+        <div class="field">
+          <label for="hanjaInput">한자</label>
+          <input id="hanjaInput" type="text" placeholder="예: 無文土器">
+        </div>
+        <div class="row" style="gap:8px">
+          <button id="saveWordBtn" class="primary">추가</button>
+          <button id="cancelEditBtn" class="ghost" style="display:none">취소</button>
+        </div>
+      </div>
+
+      <div class="dict-tools">
+        <div class="field">
+          <label for="searchInput">사전 검색</label>
+          <input id="searchInput" type="text" placeholder="한글 또는 한자 검색">
+        </div>
+        <button id="exportBtn">JSON 내보내기</button>
+        <button id="importBtn">JSON 가져오기</button>
+        <input id="importFile" type="file" accept="application/json,.json" hidden>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th style="width:38%">한글</th><th style="width:38%">한자</th><th>관리</th></tr></thead>
+          <tbody id="dictBody"></tbody>
+        </table>
+      </div>
+      <div id="dictCount" class="hint"></div>
+
+      <details>
+        <summary>Firebase 연결 방법 / Rules 보기</summary>
+        <p class="hint">
+          이 HTML 파일 안의 <b>FIREBASE_CONFIG</b> 값만 자신의 Firebase 웹 앱 설정값으로 바꾸면
+          한자 사전과 번호 대응표가 Firestore에 저장됩니다.
+        </p>
+        <pre>const FIREBASE_CONFIG = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  appId: "YOUR_APP_ID"
+};</pre>
+        <p class="hint">첫 테스트용 Firestore Rules:</p>
+        <pre>rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /dictionary/{docId} {
+      allow read, write: if true;
+    }
+    match /numberSets/{setId} {
+      allow read, write: if true;
+      match /chunks/{chunkId} {
+        allow read, write: if true;
+      }
+    }
+  }
+}</pre>
+        <p class="hint">이 규칙은 링크를 아는 사람도 데이터를 수정할 수 있습니다. 개인용 시험에는 간단하지만, 장기 운용 시 로그인 제한을 추가할 수 있습니다.</p>
+      </details>
+    </section>
+  </div>
+
+  <div class="footer">Firebase 설정 시 한자 사전과 번호 대응표가 클라우드에 저장됩니다. 설정 전에는 현재 브라우저에만 저장됩니다.</div>
+</main>
+
+<script type="module">
+  const FIREBASE_CONFIG = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    appId: "YOUR_APP_ID"
+  };
+
+  const DICT_COLLECTION = "dictionary";
+  const SET_COLLECTION = "numberSets";
+  const LOCAL_DICT_KEY = "scaleHanjaDictionaryV1";
+  const LOCAL_SET_KEY = "scaleHanjaNumberSetsV2";
+  const CHUNK_SIZE = 500;
+
+  const $ = (id) => document.getElementById(id);
+
+  let dictionary = {};
+  let numberSets = {};
+  let currentSetRows = [];
+  let mode = "local";
+  let db = null;
+  let editingKey = null;
+  let firebaseApi = null;
+
+  function isFirebaseConfigured() {
+    return FIREBASE_CONFIG.apiKey &&
+      !FIREBASE_CONFIG.apiKey.startsWith("YOUR_") &&
+      FIREBASE_CONFIG.projectId &&
+      !FIREBASE_CONFIG.projectId.startsWith("YOUR_") &&
+      FIREBASE_CONFIG.appId &&
+      !FIREBASE_CONFIG.appId.startsWith("YOUR_");
+  }
+
+  function setStatus(message, kind = "normal") {
+    $("syncMsg").textContent = message;
+    $("syncMsg").style.color = kind === "error" ? "#c73e3e" : kind === "ok" ? "#16803a" : "#667085";
+  }
+
+  function setMappingStatus(message, kind = "normal") {
+    $("mappingMsg").textContent = message;
+    $("mappingMsg").style.color = kind === "error" ? "#c73e3e" : kind === "ok" ? "#16803a" : "#667085";
+  }
+
+  function updateModeBadge() {
+    const badge = $("modeBadge");
+    badge.className = "badge " + (mode === "cloud" ? "cloud" : "local");
+    badge.innerHTML = `<span class="dot"></span><span>${mode === "cloud" ? "Firebase 클라우드 모드" : "로컬 저장 모드"}</span>`;
+  }
+
+  function loadLocalData() {
+    try {
+      dictionary = JSON.parse(localStorage.getItem(LOCAL_DICT_KEY) || "{}");
+      if (!dictionary || typeof dictionary !== "object" || Array.isArray(dictionary)) dictionary = {};
+    } catch { dictionary = {}; }
+
+    try {
+      numberSets = JSON.parse(localStorage.getItem(LOCAL_SET_KEY) || "{}");
+      if (!numberSets || typeof numberSets !== "object" || Array.isArray(numberSets)) numberSets = {};
+    } catch { numberSets = {}; }
+  }
+
+  function saveLocalDictionary() {
+    localStorage.setItem(LOCAL_DICT_KEY, JSON.stringify(dictionary));
+  }
+
+  function saveLocalNumberSets() {
+    localStorage.setItem(LOCAL_SET_KEY, JSON.stringify(numberSets));
+  }
+
+  function escapeRegExp(text) {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function transformText(text) {
+    const keys = Object.keys(dictionary).filter(k => k.length > 0).sort((a,b) => b.length - a.length);
+    if (!keys.length || !text) return text;
+    const regex = new RegExp(keys.map(escapeRegExp).join("|"), "g");
+    return text.replace(regex, match => dictionary[match] ?? match);
+  }
+
+  function calculateScale() {
+    const oldValue = Number($("oldScale").value);
+    const newValue = Number($("newScale").value);
+    const out = $("scaleResult");
+    if (!(oldValue > 0) || !(newValue > 0)) {
+      out.textContent = "축척의 분모에는 0보다 큰 숫자를 입력하세요.";
+      return;
+    }
+    const factor = oldValue / newValue;
+    const percent = factor * 100;
+    const change = (factor - 1) * 100;
+    const pct = formatNumber(percent);
+    const changePct = formatNumber(Math.abs(change));
+    let desc;
+    if (Math.abs(change) < 0.0000001) desc = `${pct}% 크기 — 변경 없음`;
+    else if (change < 0) desc = `${pct}% 크기로 축소 (현재보다 ${changePct}% 줄임)`;
+    else desc = `${pct}% 크기로 확대 (현재보다 ${changePct}% 늘림)`;
+    out.textContent = `1/${formatNumber(oldValue)} → 1/${formatNumber(newValue)} : ${desc}`;
+  }
+
+  function formatNumber(n) {
+    return Number.isInteger(n) ? n.toLocaleString("ko-KR") : n.toLocaleString("ko-KR",{maximumFractionDigits:4});
+  }
+
+  function normalizeCell(v) {
+    return String(v ?? "").trim();
+  }
+
+  function obviousHeader(a, b) {
+    const x = normalizeCell(a).toLowerCase().replace(/\s+/g,"");
+    const y = normalizeCell(b).toLowerCase().replace(/\s+/g,"");
+    const leftWords = ["앞번호","원번호","입력번호","번호1","left","from"];
+    const rightWords = ["뒤번호","대응번호","출력번호","번호2","right","to"];
+    return leftWords.some(w => x.includes(w)) || rightWords.some(w => y.includes(w));
+  }
+
+  async function parseMappingFile(file) {
+    const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs");
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data, {type:"array", cellDates:false});
+    if (!workbook.SheetNames.length) throw new Error("시트가 없습니다.");
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    let rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:"", raw:false, blankrows:false});
+
+    rows = rows
+      .map(r => [normalizeCell(r[0]), normalizeCell(r[1])])
+      .filter(([a,b]) => a !== "" || b !== "");
+
+    if (rows.length && obviousHeader(rows[0][0], rows[0][1])) rows.shift();
+
+    const cleaned = [];
+    const seen = new Set();
+    for (const [left,right] of rows) {
+      if (!left || !right) continue;
+      const key = left + "\u0000" + right;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      cleaned.push([left,right]);
+    }
+    return cleaned;
+  }
+
+  function setDocId(name) {
+    return encodeURIComponent(name);
+  }
+
+  function renderNumberSets(selectedName = null) {
+    const select = $("numberSetSelect");
+    const previous = selectedName ?? select.value;
+    const names = Object.keys(numberSets).sort((a,b) => a.localeCompare(b,"ko"));
+
+    select.innerHTML = "";
+    if (!names.length) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "등록된 항목 없음";
+      select.appendChild(opt);
+    } else {
+      for (const name of names) {
+        const opt = document.createElement("option");
+        opt.value = name;
+        const count = numberSets[name]?.count ?? (numberSets[name]?.rows?.length || 0);
+        opt.textContent = `${name} (${Number(count).toLocaleString("ko-KR")}쌍)`;
+        select.appendChild(opt);
+      }
+      select.value = names.includes(previous) ? previous : names[0];
+    }
+
+    const list = $("numberSetList");
+    list.innerHTML = "";
+    if (!names.length) {
+      list.innerHTML = `<div class="empty">업로드된 번호표가 없습니다.</div>`;
+    } else {
+      for (const name of names) {
+        const row = document.createElement("div");
+        row.className = "set-row";
+        const meta = document.createElement("div");
+        meta.className = "set-meta";
+        const count = numberSets[name]?.count ?? (numberSets[name]?.rows?.length || 0);
+        meta.innerHTML = `<div class="set-name"></div><div class="set-count">${Number(count).toLocaleString("ko-KR")}쌍</div>`;
+        meta.querySelector(".set-name").textContent = name;
+
+        const actions = document.createElement("div");
+        actions.className = "actions";
+
+        const choose = document.createElement("button");
+        choose.className = "small";
+        choose.textContent = "선택";
+        choose.addEventListener("click", async () => {
+          $("numberSetSelect").value = name;
+          await loadSelectedSet();
+        });
+
+        const del = document.createElement("button");
+        del.className = "small danger";
+        del.textContent = "삭제";
+        del.addEventListener("click", () => deleteNumberSet(name));
+
+        actions.append(choose, del);
+        row.append(meta, actions);
+        list.appendChild(row);
+      }
+    }
+
+    if (names.length) loadSelectedSet();
+    else {
+      currentSetRows = [];
+      $("lookupResult").textContent = "먼저 번호 대응표를 업로드하세요.";
+    }
+  }
+
+  async function loadSelectedSet() {
+    const name = $("numberSetSelect").value;
+    currentSetRows = [];
+    if (!name) {
+      $("lookupResult").textContent = "항목을 선택하세요.";
+      return;
+    }
+
+    try {
+      if (mode === "cloud") {
+        const { collection, getDocs } = firebaseApi;
+        const snap = await getDocs(collection(db, SET_COLLECTION, setDocId(name), "chunks"));
+        const chunks = [];
+        snap.forEach(d => {
+          const data = d.data();
+          chunks.push({id:d.id, rows:Array.isArray(data.rows) ? data.rows : []});
+        });
+        chunks.sort((a,b) => Number(a.id) - Number(b.id));
+        currentSetRows = chunks.flatMap(c => c.rows)
+          .map(r => [normalizeCell(r?.[0]), normalizeCell(r?.[1])])
+          .filter(([a,b]) => a && b);
+      } else {
+        currentSetRows = Array.isArray(numberSets[name]?.rows) ? numberSets[name].rows : [];
+      }
+      $("lookupResult").textContent = `‘${name}’ 번호표 ${currentSetRows.length.toLocaleString("ko-KR")}쌍 준비됨.`;
+    } catch (err) {
+      console.error(err);
+      setMappingStatus("번호표를 불러오지 못했습니다: " + (err?.message || err), "error");
+    }
+  }
+
+  function uniqueValues(values) {
+    return [...new Set(values)];
+  }
+
+  function lookupForward() {
+    const name = $("numberSetSelect").value;
+    const value = $("leftNumber").value.trim();
+    if (!name) return $("lookupResult").textContent = "먼저 항목을 선택하세요.";
+    if (!value) return $("lookupResult").textContent = "앞 번호를 입력하세요.";
+
+    const hits = uniqueValues(currentSetRows.filter(r => r[0] === value).map(r => r[1]));
+    if (!hits.length) {
+      $("rightNumber").value = "";
+      $("lookupResult").textContent = `‘${name}’에서 앞 번호 ${value}에 대응하는 값이 없습니다.`;
+      return;
+    }
+    $("rightNumber").value = hits.join(", ");
+    $("lookupResult").textContent = hits.length === 1
+      ? `${value} → ${hits[0]}`
+      : `${value} → ${hits.join(", ")} (${hits.length}개 일치)`;
+  }
+
+  function lookupReverse() {
+    const name = $("numberSetSelect").value;
+    const value = $("rightNumber").value.trim();
+    if (!name) return $("lookupResult").textContent = "먼저 항목을 선택하세요.";
+    if (!value) return $("lookupResult").textContent = "뒤 번호를 입력하세요.";
+
+    const hits = uniqueValues(currentSetRows.filter(r => r[1] === value).map(r => r[0]));
+    if (!hits.length) {
+      $("leftNumber").value = "";
+      $("lookupResult").textContent = `‘${name}’에서 뒤 번호 ${value}에 대응하는 값이 없습니다.`;
+      return;
+    }
+    $("leftNumber").value = hits.join(", ");
+    $("lookupResult").textContent = hits.length === 1
+      ? `${hits[0]} ← ${value}`
+      : `${hits.join(", ")} ← ${value} (${hits.length}개 일치)`;
+  }
+
+  async function deleteCloudChunks(name) {
+    const { collection, getDocs, doc, writeBatch } = firebaseApi;
+    const snap = await getDocs(collection(db, SET_COLLECTION, setDocId(name), "chunks"));
+    const refs = [];
+    snap.forEach(d => refs.push(doc(db, SET_COLLECTION, setDocId(name), "chunks", d.id)));
+    for (let i=0; i<refs.length; i+=400) {
+      const batch = writeBatch(db);
+      refs.slice(i,i+400).forEach(ref => batch.delete(ref));
+      await batch.commit();
+    }
+  }
+
+  async function saveNumberSetCloud(name, rows) {
+    const { doc, setDoc, serverTimestamp, writeBatch } = firebaseApi;
+    await deleteCloudChunks(name);
+
+    const chunks = [];
+    for (let i=0; i<rows.length; i+=CHUNK_SIZE) chunks.push(rows.slice(i,i+CHUNK_SIZE));
+
+    for (let start=0; start<chunks.length; start+=400) {
+      const batch = writeBatch(db);
+      chunks.slice(start,start+400).forEach((rowsChunk, offset) => {
+        const index = start + offset;
+        const ref = doc(db, SET_COLLECTION, setDocId(name), "chunks", String(index).padStart(6,"0"));
+        batch.set(ref, {rows: rowsChunk});
+      });
+      await batch.commit();
+    }
+
+    await setDoc(doc(db, SET_COLLECTION, setDocId(name)), {
+      name,
+      count: rows.length,
+      chunkCount: chunks.length,
+      updatedAt: serverTimestamp()
+    });
+  }
+
+  async function uploadMapping() {
+    const name = $("numberSetName").value.trim();
+    const file = $("mappingFile").files?.[0];
+
+    if (!name) return alert("항목 이름을 입력하세요. 예: 6차");
+    if (!file) return alert("엑셀 또는 CSV 파일을 선택하세요.");
+
+    $("uploadMappingBtn").disabled = true;
+    setMappingStatus("파일을 읽는 중...");
+
+    try {
+      const rows = await parseMappingFile(file);
+      if (!rows.length) throw new Error("사용 가능한 번호 쌍을 찾지 못했습니다.");
+
+      setMappingStatus(`${rows.length.toLocaleString("ko-KR")}쌍을 읽었습니다. 저장 중...`);
+
+      if (mode === "cloud") {
+        await saveNumberSetCloud(name, rows);
+        numberSets[name] = {count: rows.length};
+      } else {
+        numberSets[name] = {count: rows.length, rows};
+        saveLocalNumberSets();
+      }
+
+      $("mappingFile").value = "";
+      renderNumberSets(name);
+      $("numberSetSelect").value = name;
+      await loadSelectedSet();
+      setMappingStatus(`‘${name}’ ${rows.length.toLocaleString("ko-KR")}쌍 저장 완료`, "ok");
+    } catch (err) {
+      console.error(err);
+      setMappingStatus("업로드 실패: " + (err?.message || err), "error");
+    } finally {
+      $("uploadMappingBtn").disabled = false;
+    }
+  }
+
+  async function deleteNumberSet(name) {
+    if (!confirm(`‘${name}’ 번호표를 삭제할까요?`)) return;
+    try {
+      if (mode === "cloud") {
+        const { doc, deleteDoc } = firebaseApi;
+        await deleteCloudChunks(name);
+        await deleteDoc(doc(db, SET_COLLECTION, setDocId(name)));
+      } else {
+        delete numberSets[name];
+        saveLocalNumberSets();
+      }
+      delete numberSets[name];
+      renderNumberSets();
+      setMappingStatus(`‘${name}’ 삭제 완료`, "ok");
+    } catch (err) {
+      console.error(err);
+      setMappingStatus("삭제 실패: " + (err?.message || err), "error");
+    }
+  }
+
+  function renderDictionary() {
+    const query = $("searchInput").value.trim().toLowerCase();
+    const body = $("dictBody");
+    const entries = Object.entries(dictionary)
+      .filter(([k,v]) => !query || k.toLowerCase().includes(query) || String(v).toLowerCase().includes(query))
+      .sort((a,b) => a[0].localeCompare(b[0],"ko"));
+
+    body.innerHTML = "";
+    if (!entries.length) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="3" class="empty">등록된 항목이 없습니다.</td>`;
+      body.appendChild(tr);
+    } else {
+      for (const [hangul,hanja] of entries) {
+        const tr = document.createElement("tr");
+        const tdH = document.createElement("td"); tdH.textContent = hangul;
+        const tdJ = document.createElement("td"); tdJ.textContent = hanja;
+        const tdA = document.createElement("td"); tdA.className = "actions";
+
+        const editBtn = document.createElement("button");
+        editBtn.className = "small"; editBtn.textContent = "수정";
+        editBtn.addEventListener("click", () => startEdit(hangul));
+
+        const delBtn = document.createElement("button");
+        delBtn.className = "small danger"; delBtn.textContent = "삭제";
+        delBtn.addEventListener("click", () => deleteEntry(hangul));
+
+        tdA.append(editBtn, delBtn); tr.append(tdH,tdJ,tdA); body.appendChild(tr);
+      }
+    }
+    $("dictCount").textContent = `전체 ${Object.keys(dictionary).length.toLocaleString("ko-KR")}개 · 현재 표시 ${entries.length.toLocaleString("ko-KR")}개`;
+  }
+
+  function startEdit(key) {
+    editingKey = key;
+    $("hangulInput").value = key;
+    $("hanjaInput").value = dictionary[key] ?? "";
+    $("saveWordBtn").textContent = "저장";
+    $("cancelEditBtn").style.display = "";
+    $("hangulInput").focus();
+  }
+
+  function cancelEdit() {
+    editingKey = null;
+    $("hangulInput").value = "";
+    $("hanjaInput").value = "";
+    $("saveWordBtn").textContent = "추가";
+    $("cancelEditBtn").style.display = "none";
+  }
+
+  async function upsertEntry() {
+    const hangul = $("hangulInput").value.trim();
+    const hanja = $("hanjaInput").value.trim();
+    if (!hangul || !hanja) return alert("한글과 한자를 모두 입력하세요.");
+
+    try {
+      if (mode === "cloud") {
+        const {doc,setDoc,deleteDoc,serverTimestamp} = firebaseApi;
+        if (editingKey && editingKey !== hangul) {
+          await deleteDoc(doc(db,DICT_COLLECTION,encodeURIComponent(editingKey)));
+          delete dictionary[editingKey];
+        }
+        await setDoc(doc(db,DICT_COLLECTION,encodeURIComponent(hangul)), {hangul,hanja,updatedAt:serverTimestamp()});
+      } else {
+        if (editingKey && editingKey !== hangul) delete dictionary[editingKey];
+        dictionary[hangul] = hanja;
+        saveLocalDictionary();
+      }
+
+      dictionary[hangul] = hanja;
+      renderDictionary();
+      cancelEdit();
+      setStatus(`"${hangul}" 저장 완료`, "ok");
+    } catch (err) {
+      console.error(err);
+      setStatus("저장 실패: " + (err?.message || err), "error");
+    }
+  }
+
+  async function deleteEntry(key) {
+    if (!confirm(`"${key}" 항목을 삭제할까요?`)) return;
+    try {
+      if (mode === "cloud") {
+        const {doc,deleteDoc} = firebaseApi;
+        await deleteDoc(doc(db,DICT_COLLECTION,encodeURIComponent(key)));
+      } else {
+        delete dictionary[key];
+        saveLocalDictionary();
+      }
+      delete dictionary[key];
+      if (editingKey === key) cancelEdit();
+      renderDictionary();
+      setStatus(`"${key}" 삭제 완료`, "ok");
+    } catch (err) {
+      console.error(err);
+      setStatus("삭제 실패: " + (err?.message || err), "error");
+    }
+  }
+
+  function exportJson() {
+    const ordered = Object.fromEntries(Object.entries(dictionary).sort((a,b) => a[0].localeCompare(b[0],"ko")));
+    const blob = new Blob([JSON.stringify(ordered,null,2)], {type:"application/json;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `hanja_dictionary_${new Date().toISOString().slice(0,10)}.json`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function importJson(file) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const incoming = JSON.parse(text);
+      if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) throw new Error("JSON 형식이 올바르지 않습니다.");
+      const cleaned = {};
+      for (const [k,v] of Object.entries(incoming)) {
+        const key = String(k).trim(), val = String(v).trim();
+        if (key && val) cleaned[key] = val;
+      }
+      if (!Object.keys(cleaned).length) return alert("가져올 항목이 없습니다.");
+      if (!confirm(`${Object.keys(cleaned).length}개 항목을 현재 사전에 병합할까요? 같은 한글 키는 새 값으로 덮어씁니다.`)) return;
+
+      if (mode === "cloud") {
+        const {doc,setDoc,serverTimestamp} = firebaseApi;
+        for (const [hangul,hanja] of Object.entries(cleaned)) {
+          await setDoc(doc(db,DICT_COLLECTION,encodeURIComponent(hangul)), {hangul,hanja,updatedAt:serverTimestamp()});
+        }
+      }
+      Object.assign(dictionary,cleaned);
+      if (mode === "local") saveLocalDictionary();
+      renderDictionary();
+      setStatus(`${Object.keys(cleaned).length}개 항목 가져오기 완료`, "ok");
+    } catch (err) {
+      console.error(err);
+      alert("가져오기 실패: " + (err?.message || err));
+    } finally {
+      $("importFile").value = "";
+    }
+  }
+
+  async function initFirebase() {
+    if (!isFirebaseConfigured()) {
+      loadLocalData();
+      mode = "local";
+      updateModeBadge();
+      renderDictionary();
+      renderNumberSets();
+      setStatus("Firebase 설정 전에는 이 브라우저에만 저장됩니다.");
+      setMappingStatus("현재는 로컬 저장 모드입니다.");
+      return;
+    }
+
+    try {
+      const appMod = await import("https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js");
+      const fsMod = await import("https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js");
+      firebaseApi = {...fsMod};
+      const app = appMod.initializeApp(FIREBASE_CONFIG);
+      db = fsMod.getFirestore(app);
+
+      const dictSnap = await fsMod.getDocs(fsMod.collection(db,DICT_COLLECTION));
+      dictionary = {};
+      dictSnap.forEach(d => {
+        const data = d.data();
+        if (data?.hangul && data?.hanja) dictionary[String(data.hangul)] = String(data.hanja);
+      });
+
+      const setSnap = await fsMod.getDocs(fsMod.collection(db,SET_COLLECTION));
+      numberSets = {};
+      setSnap.forEach(d => {
+        const data = d.data();
+        if (data?.name) numberSets[String(data.name)] = {count:Number(data.count || 0)};
+      });
+
+      mode = "cloud";
+      updateModeBadge();
+      renderDictionary();
+      renderNumberSets();
+      setStatus(`Firebase 연결 완료 · 한자 사전 ${Object.keys(dictionary).length.toLocaleString("ko-KR")}개`, "ok");
+      setMappingStatus(`Firebase에서 번호표 ${Object.keys(numberSets).length.toLocaleString("ko-KR")}개를 확인했습니다.`, "ok");
+    } catch (err) {
+      console.error(err);
+      mode = "local";
+      loadLocalData();
+      updateModeBadge();
+      renderDictionary();
+      renderNumberSets();
+      setStatus("Firebase 연결에 실패해 로컬 모드로 열었습니다: " + (err?.message || err), "error");
+      setMappingStatus("Firebase 연결 실패로 로컬 번호표를 사용합니다.", "error");
+    }
+  }
+
+  $("calcBtn").addEventListener("click", calculateScale);
+  $("oldScale").addEventListener("input", calculateScale);
+  $("newScale").addEventListener("input", calculateScale);
+
+  $("convertBtn").addEventListener("click", () => $("outputText").value = transformText($("sourceText").value));
+  $("swapBackBtn").addEventListener("click", () => { $("sourceText").value = $("outputText").value; $("sourceText").focus(); });
+  $("clearTextBtn").addEventListener("click", () => { $("sourceText").value=""; $("outputText").value=""; $("sourceText").focus(); });
+  $("copyBtn").addEventListener("click", async () => {
+    const text = $("outputText").value;
+    if (!text) return;
+    try { await navigator.clipboard.writeText(text); setStatus("변환 결과를 클립보드에 복사했습니다.","ok"); }
+    catch { $("outputText").select(); document.execCommand("copy"); setStatus("변환 결과를 클립보드에 복사했습니다.","ok"); }
+  });
+
+  $("numberSetSelect").addEventListener("change", async () => {
+    $("leftNumber").value = "";
+    $("rightNumber").value = "";
+    await loadSelectedSet();
+  });
+  $("forwardLookupBtn").addEventListener("click", lookupForward);
+  $("reverseLookupBtn").addEventListener("click", lookupReverse);
+  $("leftNumber").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); lookupForward(); } });
+  $("rightNumber").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); lookupReverse(); } });
+  $("leftNumber").addEventListener("change", () => { if ($("leftNumber").value.trim()) lookupForward(); });
+  $("rightNumber").addEventListener("change", () => { if ($("rightNumber").value.trim()) lookupReverse(); });
+  $("uploadMappingBtn").addEventListener("click", uploadMapping);
+
+  $("saveWordBtn").addEventListener("click", upsertEntry);
+  $("cancelEditBtn").addEventListener("click", cancelEdit);
+  $("searchInput").addEventListener("input", renderDictionary);
+  $("exportBtn").addEventListener("click", exportJson);
+  $("importBtn").addEventListener("click", () => $("importFile").click());
+  $("importFile").addEventListener("change", e => importJson(e.target.files?.[0]));
+  $("hangulInput").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("hanjaInput").focus(); } });
+  $("hanjaInput").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); upsertEntry(); } });
+
+  calculateScale();
+  await initFirebase();
+</script>
+</body>
+</html>
