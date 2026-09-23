@@ -340,6 +340,11 @@
           <tbody id="dictBody"></tbody>
         </table>
       </div>
+      <div class="toolbar" style="justify-content:center;margin-top:12px">
+        <button id="dictPrevPageBtn" class="ghost">이전</button>
+        <span id="dictPageInfo" class="msg" style="align-self:center"></span>
+        <button id="dictNextPageBtn" class="ghost">다음</button>
+      </div>
       <div id="dictCount" class="hint"></div>
 
       <details>
@@ -394,6 +399,8 @@ service cloud.firestore {
   const $ = (id) => document.getElementById(id);
 
   let dictionary = {};
+  let dictionaryCurrentPage = 1;
+  const DICTIONARY_ROWS_PER_PAGE = 50;
   let numberSets = {};
   let currentSetRows = [];
   let editingMappingIndex = null;
@@ -1082,17 +1089,32 @@ service cloud.firestore {
   function renderDictionary() {
     const query = $("searchInput").value.trim().toLowerCase();
     const body = $("dictBody");
+    const pageInfo = $("dictPageInfo");
+    const prevBtn = $("dictPrevPageBtn");
+    const nextBtn = $("dictNextPageBtn");
+
     const entries = Object.entries(dictionary)
       .filter(([k,v]) => !query || k.toLowerCase().includes(query) || String(v).toLowerCase().includes(query))
       .sort((a,b) => a[0].localeCompare(b[0],"ko"));
 
+    const totalRows = entries.length;
+    const totalPages = Math.max(1, Math.ceil(totalRows / DICTIONARY_ROWS_PER_PAGE));
+
+    if (dictionaryCurrentPage > totalPages) dictionaryCurrentPage = totalPages;
+    if (dictionaryCurrentPage < 1) dictionaryCurrentPage = 1;
+
+    const start = (dictionaryCurrentPage - 1) * DICTIONARY_ROWS_PER_PAGE;
+    const end = Math.min(start + DICTIONARY_ROWS_PER_PAGE, totalRows);
+    const pageEntries = entries.slice(start, end);
+
     body.innerHTML = "";
-    if (!entries.length) {
+
+    if (!pageEntries.length) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="3" class="empty">등록된 항목이 없습니다.</td>`;
+      tr.innerHTML = `<td colspan="3" class="empty">${query ? "검색 결과가 없습니다." : "등록된 항목이 없습니다."}</td>`;
       body.appendChild(tr);
     } else {
-      for (const [hangul,hanja] of entries) {
+      for (const [hangul,hanja] of pageEntries) {
         const tr = document.createElement("tr");
         const tdH = document.createElement("td"); tdH.textContent = hangul;
         const tdJ = document.createElement("td"); tdJ.textContent = hanja;
@@ -1106,10 +1128,22 @@ service cloud.firestore {
         delBtn.className = "small danger"; delBtn.textContent = "삭제";
         delBtn.addEventListener("click", () => deleteEntry(hangul));
 
-        tdA.append(editBtn, delBtn); tr.append(tdH,tdJ,tdA); body.appendChild(tr);
+        tdA.append(editBtn, delBtn);
+        tr.append(tdH,tdJ,tdA);
+        body.appendChild(tr);
       }
     }
-    $("dictCount").textContent = `전체 ${Object.keys(dictionary).length.toLocaleString("ko-KR")}개 · 현재 표시 ${entries.length.toLocaleString("ko-KR")}개`;
+
+    pageInfo.textContent = totalRows
+      ? `${dictionaryCurrentPage} / ${totalPages} 페이지`
+      : `1 / 1 페이지`;
+
+    prevBtn.disabled = dictionaryCurrentPage <= 1;
+    nextBtn.disabled = dictionaryCurrentPage >= totalPages;
+
+    $("dictCount").textContent = totalRows
+      ? `전체 ${Object.keys(dictionary).length.toLocaleString("ko-KR")}개 · 검색 결과 ${totalRows.toLocaleString("ko-KR")}개 · ${start + 1}–${end}개 표시`
+      : `전체 ${Object.keys(dictionary).length.toLocaleString("ko-KR")}개 · 검색 결과 0개`;
   }
 
   function startEdit(key) {
@@ -1209,6 +1243,7 @@ service cloud.firestore {
       }
       Object.assign(dictionary,cleaned);
       if (mode === "local") saveLocalDictionary();
+      dictionaryCurrentPage = 1;
       renderDictionary();
       setStatus(`${Object.keys(cleaned).length}개 항목 가져오기 완료`, "ok");
     } catch (err) {
@@ -1332,7 +1367,30 @@ service cloud.firestore {
 
   $("saveWordBtn").addEventListener("click", upsertEntry);
   $("cancelEditBtn").addEventListener("click", cancelEdit);
-  $("searchInput").addEventListener("input", renderDictionary);
+  $("searchInput").addEventListener("input", () => {
+    dictionaryCurrentPage = 1;
+    renderDictionary();
+  });
+  $("dictPrevPageBtn").addEventListener("click", () => {
+    if (dictionaryCurrentPage > 1) {
+      dictionaryCurrentPage -= 1;
+      renderDictionary();
+    }
+  });
+
+  $("dictNextPageBtn").addEventListener("click", () => {
+    const query = $("searchInput").value.trim().toLowerCase();
+    const totalRows = Object.entries(dictionary)
+      .filter(([k,v]) => !query || k.toLowerCase().includes(query) || String(v).toLowerCase().includes(query))
+      .length;
+    const totalPages = Math.max(1, Math.ceil(totalRows / DICTIONARY_ROWS_PER_PAGE));
+
+    if (dictionaryCurrentPage < totalPages) {
+      dictionaryCurrentPage += 1;
+      renderDictionary();
+    }
+  });
+
   $("exportBtn").addEventListener("click", exportJson);
   $("importBtn").addEventListener("click", () => $("importFile").click());
   $("importFile").addEventListener("change", e => importJson(e.target.files?.[0]));
