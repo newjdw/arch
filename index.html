@@ -234,7 +234,7 @@
         <button id="saveLookupNoteBtn" class="primary" disabled>비고 저장</button>
         <span id="lookupNoteStatus" class="msg" style="align-self:center"></span>
       </div>
-      <div class="hint">예: ‘6차’ 표에 보고서 번호 125 ↔ 표준유물시스템 번호 7543이 등록돼 있으면 어느 쪽 번호로도 조회할 수 있습니다. 한 건이 조회되면 비고를 바로 입력·수정한 뒤 저장할 수 있습니다.</div>
+      <div class="hint">보고서 번호는 선택한 항목 안에서 조회합니다. 표준유물시스템 번호는 모든 항목을 자동 검색해 해당 항목과 보고서 번호를 찾아줍니다. 조회된 비고는 바로 입력·수정해 저장할 수 있습니다.</div>
 
       <div class="dataset-manage">
         <h3 style="margin:0 0 10px;font-size:16px">번호표 업로드 / 관리</h3>
@@ -369,6 +369,7 @@
   let dictionaryCurrentPage = 1;
   const DICTIONARY_ROWS_PER_PAGE = 50;
   let numberSets = {};
+  let numberSetRowsCache = {};
   let currentSetRows = [];
   let editingMappingIndex = null;
   let lookupMatchedIndex = null;
@@ -628,11 +629,67 @@
     }
   }
 
+  async function getNumberSetRows(name) {
+    if (!name) return [];
+
+    if (Array.isArray(numberSetRowsCache[name])) {
+      return numberSetRowsCache[name];
+    }
+
+    if (mode === "cloud") {
+      const { collection, getDocs } = firebaseApi;
+      const snap = await getDocs(collection(db, SET_COLLECTION, setDocId(name), "chunks"));
+      const chunks = [];
+
+      snap.forEach(d => {
+        const data = d.data();
+        chunks.push({
+          id: d.id,
+          rows: Array.isArray(data.rows) ? data.rows : []
+        });
+      });
+
+      chunks.sort((a,b) => Number(a.id) - Number(b.id));
+
+      const rows = chunks.flatMap(c => c.rows)
+        .map(r => {
+          if (Array.isArray(r)) {
+            return [
+              normalizeCell(r?.[0]),
+              normalizeCell(r?.[1]),
+              normalizeCell(r?.[2])
+            ];
+          }
+          return [
+            normalizeCell(r?.reportNumber),
+            normalizeCell(r?.standardNumber),
+            normalizeCell(r?.note)
+          ];
+        })
+        .filter(([a,b]) => a && b);
+
+      numberSetRowsCache[name] = rows;
+      return rows;
+    }
+
+    const rows = Array.isArray(numberSets[name]?.rows)
+      ? numberSets[name].rows.map(r => [
+          normalizeCell(r?.[0]),
+          normalizeCell(r?.[1]),
+          normalizeCell(r?.[2])
+        ])
+      : [];
+
+    numberSetRowsCache[name] = rows;
+    return rows;
+  }
+
   async function loadSelectedSet() {
     const name = $("numberSetSelect").value;
     currentSetRows = [];
     mappingCurrentPage = 1;
     resetMappingEditor();
+
     if (!name) {
       $("lookupResult").textContent = "항목을 선택하세요.";
       resetLookupNoteEditor();
@@ -641,32 +698,7 @@
     }
 
     try {
-      if (mode === "cloud") {
-        const { collection, getDocs } = firebaseApi;
-        const snap = await getDocs(collection(db, SET_COLLECTION, setDocId(name), "chunks"));
-        const chunks = [];
-        snap.forEach(d => {
-          const data = d.data();
-          chunks.push({id:d.id, rows:Array.isArray(data.rows) ? data.rows : []});
-        });
-        chunks.sort((a,b) => Number(a.id) - Number(b.id));
-        currentSetRows = chunks.flatMap(c => c.rows)
-          .map(r => {
-            if (Array.isArray(r)) {
-              return [normalizeCell(r?.[0]), normalizeCell(r?.[1]), normalizeCell(r?.[2])];
-            }
-            return [
-              normalizeCell(r?.reportNumber),
-              normalizeCell(r?.standardNumber),
-              normalizeCell(r?.note)
-            ];
-          })
-          .filter(([a,b]) => a && b);
-      } else {
-        currentSetRows = Array.isArray(numberSets[name]?.rows)
-          ? numberSets[name].rows.map(r => [normalizeCell(r?.[0]), normalizeCell(r?.[1]), normalizeCell(r?.[2])])
-          : [];
-      }
+      currentSetRows = await getNumberSetRows(name);
       $("lookupResult").textContent = "어느 한쪽 번호를 입력해 조회하세요.";
       resetLookupNoteEditor();
       renderMappingRows();
@@ -762,47 +794,62 @@
       : `${value} → ${standardValues.join(", ")} (${hits.length}개 일치)`;
   }
 
-  function lookupReverse() {
-    const name = $("numberSetSelect").value;
+  async function lookupReverse() {
     const value = $("rightNumber").value.trim();
-    if (!name) {
-      resetLookupNoteEditor();
-      return $("lookupResult").textContent = "먼저 항목을 선택하세요.";
-    }
+
     if (!value) {
       resetLookupNoteEditor();
       return $("lookupResult").textContent = "표준유물시스템 번호를 입력하세요.";
     }
 
-    const hits = currentSetRows
-      .map((row, index) => ({row, index}))
-      .filter(item => item.row[1] === value);
+    if (!Object.keys(numberSets).length) {
+      resetLookupNoteEditor();
+      $("leftNumber").value = "";
+      return $("lookupResult").textContent = "등록된 번호표가 없습니다.";
+    }
 
-    if (!hits.length) {
+    $("lookupResult").textContent = "전체 항목에서 조회 중...";
+    resetLookupNoteEditor();
+
+    try {
+      const names = Object.keys(numberSets).sort((a,b) => a.localeCompare(b, "ko"));
+      let found = null;
+
+      for (const name of names) {
+        const rows = await getNumberSetRows(name);
+        const index = rows.findIndex(row => row[1] === value);
+
+        if (index >= 0) {
+          found = { name, rows, index, row: rows[index] };
+          break;
+        }
+      }
+
+      if (!found) {
+        $("leftNumber").value = "";
+        $("lookupResult").textContent =
+          `전체 항목에서 표준유물시스템 번호 ${value}를 찾지 못했습니다.`;
+        return;
+      }
+
+      $("numberSetSelect").value = found.name;
+      currentSetRows = found.rows;
+      mappingCurrentPage = Math.floor(found.index / MAPPING_ROWS_PER_PAGE) + 1;
+      resetMappingEditor();
+
+      $("leftNumber").value = found.row[0];
+      enableLookupNoteEditor(found.index, found.row[2] || "");
+      renderMappingRows();
+
+      $("lookupResult").textContent =
+        `${found.name} · 보고서 번호 ${found.row[0]} ← ${value}`;
+    } catch (err) {
+      console.error(err);
       $("leftNumber").value = "";
       resetLookupNoteEditor();
-      $("lookupResult").textContent = `‘${name}’에서 표준유물시스템 번호 ${value}에 대응하는 값이 없습니다.`;
-      return;
+      $("lookupResult").textContent = "전체 번호표 조회 중 오류가 발생했습니다.";
+      setMappingStatus("전체 번호표 조회 실패: " + (err?.message || err), "error");
     }
-
-    const reportValues = uniqueValues(hits.map(item => item.row[0]));
-    $("leftNumber").value = reportValues.join(", ");
-
-    if (hits.length === 1) {
-      enableLookupNoteEditor(hits[0].index, hits[0].row[2] || "");
-    } else {
-      lookupMatchedIndex = null;
-      $("lookupNote").value = hits.map(item => {
-        const note = item.row[2] || "(비고 없음)";
-        return `${item.row[0]} : ${note}`;
-      }).join("\n");
-      $("saveLookupNoteBtn").disabled = true;
-      $("lookupNoteStatus").textContent = "여러 항목이 일치합니다. 아래 직접 편집에서 수정하세요.";
-    }
-
-    $("lookupResult").textContent = hits.length === 1
-      ? `${hits[0].row[0]} ← ${value}`
-      : `${reportValues.join(", ")} ← ${value} (${hits.length}개 일치)`;
   }
 
   function resetMappingEditor() {
@@ -902,6 +949,7 @@
       saveLocalNumberSets();
     }
 
+    numberSetRowsCache[name] = currentSetRows;
     setMappingStatus(successMessage, "ok");
   }
 
@@ -1034,6 +1082,7 @@
         saveLocalNumberSets();
       }
 
+      numberSetRowsCache[name] = rows;
       $("mappingFile").value = "";
       mappingCurrentPage = 1;
       renderNumberSets(name);
@@ -1060,6 +1109,7 @@
         saveLocalNumberSets();
       }
       delete numberSets[name];
+      delete numberSetRowsCache[name];
       renderNumberSets();
       setMappingStatus(`‘${name}’ 삭제 완료`, "ok");
     } catch (err) {
@@ -1264,6 +1314,7 @@
 
       const setSnap = await fsMod.getDocs(fsMod.collection(db,SET_COLLECTION));
       numberSets = {};
+      numberSetRowsCache = {};
       setSnap.forEach(d => {
         const data = d.data();
         if (data?.name) numberSets[String(data.name)] = {count:Number(data.count || 0)};
