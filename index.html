@@ -98,7 +98,11 @@
     .lookup-buttons{display:flex;flex-direction:column;gap:7px}
     .lookup-buttons button{min-width:90px}
     .dataset-manage{
-      margin-top:18px;padding-top:18px;border-top:1px dashed var(--line)
+      margin-top:18px;border-top:1px dashed var(--line);padding-top:12px
+    }
+    .dataset-manage > summary{
+      cursor:pointer;font-weight:800;font-size:16px;
+      padding:8px 2px;list-style-position:outside
     }
     .dataset-upload{
       display:grid;grid-template-columns:minmax(150px,.65fr) minmax(220px,1.35fr) auto;
@@ -235,8 +239,9 @@
       </div>
       <div class="hint">보고서 번호는 선택한 항목 안에서 조회합니다. 표준유물시스템 번호는 모든 항목을 자동 검색해 해당 항목과 보고서 번호를 찾아줍니다. 조회된 비고는 바로 입력·수정해 저장할 수 있습니다.</div>
 
-      <div class="dataset-manage">
-        <h3 style="margin:0 0 10px;font-size:16px">번호표 업로드 / 관리</h3>
+      <details class="dataset-manage" id="datasetManageDetails">
+        <summary>번호표 업로드 / 관리</summary>
+        <div style="margin-top:14px">
         <div class="dataset-upload">
           <div class="field">
             <label for="numberSetName">항목 이름</label>
@@ -297,7 +302,8 @@
           <div class="hint">직접 편집 표는 페이지당 50행씩 표시됩니다. 번호표가 300행을 넘더라도 모든 행을 페이지 이동으로 수정할 수 있습니다.</div>
           </div>
         </details>
-      </div>
+        </div>
+      </details>
     </section>
 
     <section class="card">
