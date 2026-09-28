@@ -190,14 +190,13 @@
       </div>
       <div class="toolbar">
         <button id="convertBtn" class="primary">한자로 변환</button>
-        <button id="quickCopyBtn">클립보드 복사</button>
+        <button id="quickCopyBtn">결과 복사</button>
         <button id="clearTextBtn" class="ghost">비우기</button>
       </div>
       <div class="field" style="margin-top:14px">
         <label for="outputText">변환 결과</label>
         <textarea id="outputText" readonly placeholder="변환 결과가 여기에 표시됩니다."></textarea>
       </div>
-      <div class="toolbar"><button id="copyBtn">결과 복사</button></div>
       <div class="hint">등록된 단어가 겹칠 경우 긴 단어를 먼저 적용합니다. 띄어쓰기·줄바꿈·괄호·쉼표 등은 그대로 유지됩니다.</div>
     </section>
 
@@ -1346,7 +1345,36 @@
   $("measuredLength").addEventListener("input", calculateLengthScale);
   $("actualLength").addEventListener("input", calculateLengthScale);
 
-  $("convertBtn").addEventListener("click", () => $("outputText").value = transformText($("sourceText").value));
+  $("convertBtn").addEventListener("click", () => {
+    $("outputText").value = transformText($("sourceText").value);
+  });
+
+  $("clearTextBtn").addEventListener("click", () => {
+    $("sourceText").value = "";
+    $("outputText").value = "";
+    $("sourceText").focus();
+  });
+
+  async function copyConvertedText() {
+    const text = $("outputText").value;
+
+    if (!text) {
+      setStatus("복사할 변환 결과가 없습니다.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatus("변환 결과를 클립보드에 복사했습니다.", "ok");
+    } catch {
+      $("outputText").focus();
+      $("outputText").select();
+      document.execCommand("copy");
+      setStatus("변환 결과를 클립보드에 복사했습니다.", "ok");
+    }
+  }
+
+  $("quickCopyBtn").addEventListener("click", copyConvertedText);
   $("forwardLookupBtn").addEventListener("click", lookupForward);
   $("reverseLookupBtn").addEventListener("click", lookupReverse);
   $("saveLookupNoteBtn").addEventListener("click", saveLookupNote);
