@@ -98,11 +98,7 @@
     .lookup-buttons{display:flex;flex-direction:column;gap:7px}
     .lookup-buttons button{min-width:90px}
     .dataset-manage{
-      margin-top:18px;border-top:1px dashed var(--line);padding-top:12px
-    }
-    .dataset-manage > summary{
-      cursor:pointer;font-weight:800;font-size:16px;
-      padding:8px 2px;list-style-position:outside
+      margin-top:18px;padding-top:18px;border-top:1px dashed var(--line)
     }
     .dataset-upload{
       display:grid;grid-template-columns:minmax(150px,.65fr) minmax(220px,1.35fr) auto;
@@ -194,13 +190,14 @@
       </div>
       <div class="toolbar">
         <button id="convertBtn" class="primary">한자로 변환</button>
-        <button id="quickCopyBtn">결과 복사</button>
+        <button id="quickCopyBtn">클립보드 복사</button>
         <button id="clearTextBtn" class="ghost">비우기</button>
       </div>
       <div class="field" style="margin-top:14px">
         <label for="outputText">변환 결과</label>
         <textarea id="outputText" readonly placeholder="변환 결과가 여기에 표시됩니다."></textarea>
       </div>
+      <div class="toolbar"><button id="copyBtn">결과 복사</button></div>
       <div class="hint">등록된 단어가 겹칠 경우 긴 단어를 먼저 적용합니다. 띄어쓰기·줄바꿈·괄호·쉼표 등은 그대로 유지됩니다.</div>
     </section>
 
@@ -239,9 +236,8 @@
       </div>
       <div class="hint">보고서 번호는 선택한 항목 안에서 조회합니다. 표준유물시스템 번호는 모든 항목을 자동 검색해 해당 항목과 보고서 번호를 찾아줍니다. 조회된 비고는 바로 입력·수정해 저장할 수 있습니다.</div>
 
-      <details class="dataset-manage" id="datasetManageDetails">
-        <summary>번호표 업로드 / 관리</summary>
-        <div style="margin-top:14px">
+      <div class="dataset-manage">
+        <h3 style="margin:0 0 10px;font-size:16px">번호표 업로드 / 관리</h3>
         <div class="dataset-upload">
           <div class="field">
             <label for="numberSetName">항목 이름</label>
@@ -302,8 +298,7 @@
           <div class="hint">직접 편집 표는 페이지당 50행씩 표시됩니다. 번호표가 300행을 넘더라도 모든 행을 페이지 이동으로 수정할 수 있습니다.</div>
           </div>
         </details>
-        </div>
-      </details>
+      </div>
     </section>
 
     <section class="card">
@@ -703,7 +698,12 @@
     }
 
     try {
-      currentSetRows = await getNumberSetRows(name);
+      const rows = await getNumberSetRows(name);
+
+      // 비동기 로딩 중 사용자가 다른 항목으로 바꿨다면 오래된 결과는 적용하지 않음
+      if ($("numberSetSelect").value !== name) return;
+
+      currentSetRows = rows;
       $("lookupResult").textContent = "어느 한쪽 번호를 입력해 조회하세요.";
       resetLookupNoteEditor();
       renderMappingRows();
@@ -756,47 +756,65 @@
     }
   }
 
-  function lookupForward() {
+  async function lookupForward() {
     const name = $("numberSetSelect").value;
     const value = $("leftNumber").value.trim();
+
     if (!name) {
       resetLookupNoteEditor();
       return $("lookupResult").textContent = "먼저 항목을 선택하세요.";
     }
+
     if (!value) {
       resetLookupNoteEditor();
       return $("lookupResult").textContent = "보고서 번호를 입력하세요.";
     }
 
-    const hits = currentSetRows
-      .map((row, index) => ({row, index}))
-      .filter(item => item.row[0] === value);
+    try {
+      // currentSetRows가 오래된 상태여도 현재 드롭다운의 항목을 기준으로 다시 확인
+      const rows = await getNumberSetRows(name);
 
-    if (!hits.length) {
+      // 조회 도중 항목이 바뀌었다면 잘못된 결과를 표시하지 않음
+      if ($("numberSetSelect").value !== name) return;
+
+      currentSetRows = rows;
+
+      const hits = rows
+        .map((row, index) => ({row, index}))
+        .filter(item => item.row[0] === value);
+
+      if (!hits.length) {
+        $("rightNumber").value = "";
+        resetLookupNoteEditor();
+        $("lookupResult").textContent = `‘${name}’에서 보고서 번호 ${value}에 대응하는 값이 없습니다.`;
+        return;
+      }
+
+      const standardValues = uniqueValues(hits.map(item => item.row[1]));
+      $("rightNumber").value = standardValues.join(", ");
+
+      if (hits.length === 1) {
+        enableLookupNoteEditor(hits[0].index, hits[0].row[2] || "");
+      } else {
+        lookupMatchedIndex = null;
+        $("lookupNote").value = hits.map(item => {
+          const note = item.row[2] || "(비고 없음)";
+          return `${item.row[1]} : ${note}`;
+        }).join("\n");
+        $("saveLookupNoteBtn").disabled = true;
+        $("lookupNoteStatus").textContent = "여러 항목이 일치합니다. 아래 직접 편집에서 수정하세요.";
+      }
+
+      $("lookupResult").textContent = hits.length === 1
+        ? `${value} → ${hits[0].row[1]}`
+        : `${value} → ${standardValues.join(", ")} (${hits.length}개 일치)`;
+    } catch (err) {
+      console.error(err);
       $("rightNumber").value = "";
       resetLookupNoteEditor();
-      $("lookupResult").textContent = `‘${name}’에서 보고서 번호 ${value}에 대응하는 값이 없습니다.`;
-      return;
+      $("lookupResult").textContent = `‘${name}’ 번호표 조회 중 오류가 발생했습니다.`;
+      setMappingStatus("번호표 조회 실패: " + (err?.message || err), "error");
     }
-
-    const standardValues = uniqueValues(hits.map(item => item.row[1]));
-    $("rightNumber").value = standardValues.join(", ");
-
-    if (hits.length === 1) {
-      enableLookupNoteEditor(hits[0].index, hits[0].row[2] || "");
-    } else {
-      lookupMatchedIndex = null;
-      $("lookupNote").value = hits.map(item => {
-        const note = item.row[2] || "(비고 없음)";
-        return `${item.row[1]} : ${note}`;
-      }).join("\n");
-      $("saveLookupNoteBtn").disabled = true;
-      $("lookupNoteStatus").textContent = "여러 항목이 일치합니다. 아래 직접 편집에서 수정하세요.";
-    }
-
-    $("lookupResult").textContent = hits.length === 1
-      ? `${value} → ${hits[0].row[1]}`
-      : `${value} → ${standardValues.join(", ")} (${hits.length}개 일치)`;
   }
 
   async function lookupReverse() {
@@ -1381,6 +1399,14 @@
   }
 
   $("quickCopyBtn").addEventListener("click", copyConvertedText);
+  $("copyBtn").addEventListener("click", copyConvertedText);
+  $("numberSetSelect").addEventListener("change", async () => {
+    $("leftNumber").value = "";
+    $("rightNumber").value = "";
+    resetLookupNoteEditor();
+    await loadSelectedSet();
+  });
+
   $("forwardLookupBtn").addEventListener("click", lookupForward);
   $("reverseLookupBtn").addEventListener("click", lookupReverse);
   $("saveLookupNoteBtn").addEventListener("click", saveLookupNote);
